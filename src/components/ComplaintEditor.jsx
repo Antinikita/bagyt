@@ -4,16 +4,16 @@ export default function ComplaintEditor({ complaint, onSaved }) {
   const [text, setText] = useState("");
 
   useEffect(() => {
-    if (complaint) setText(complaint.complaint || "");
+    if (complaint) setText(complaint.complaint);
   }, [complaint]);
 
-  if (!complaint) return <div>Select complaint...</div>;
+  if (!complaint) return <div>Select a complaint...</div>;
 
   const handleSave = async () => {
     const method = complaint.id ? "PUT" : "POST";
     const url = complaint.id
       ? `http://localhost:8000/api/complaints/${complaint.id}`
-      : "http://localhost:8000/api/complaints";
+      : `http://localhost:8000/api/complaints`;
 
     const res = await fetch(url, {
       method,
@@ -23,19 +23,25 @@ export default function ComplaintEditor({ complaint, onSaved }) {
     });
 
     const data = await res.json();
-
-    onSaved(data.complaint); // уведомляем родителя
+    if (res.ok) {
+      onSaved(data.complaint);
+    } else {
+      alert("Save failed");
+    }
   };
 
   return (
-    <div className="complaint-editor">
+    <div>
       <h3>{complaint.id ? `Complaint #${complaint.id}` : "New Complaint"}</h3>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={10}
+        style={{ width: "100%" }}
       />
-      <button onClick={handleSave}>Save</button>
+      <button onClick={handleSave} style={{ marginTop: "10px" }}>
+        Save
+      </button>
     </div>
   );
 }

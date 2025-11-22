@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export default function ComplaintList({ onSelect }) {
+export default function ComplaintList({ onSelect, refreshTrigger }) {
   const [complaints, setComplaints] = useState([]);
   const [hoveredId, setHoveredId] = useState(null);
 
@@ -10,9 +10,7 @@ export default function ComplaintList({ onSelect }) {
         credentials: "include",
       });
       const data = await res.json();
-
-      if (Array.isArray(data)) setComplaints(data);
-      else if (Array.isArray(data.complaints)) setComplaints(data.complaints);
+      if (Array.isArray(data.complaints)) setComplaints(data.complaints);
       else setComplaints([]);
     } catch (err) {
       console.error(err);
@@ -22,7 +20,7 @@ export default function ComplaintList({ onSelect }) {
 
   useEffect(() => {
     fetchComplaints();
-  }, []);
+  }, [refreshTrigger]);
 
   const handleDelete = async (id) => {
     if (!confirm("Delete this complaint?")) return;
@@ -33,22 +31,20 @@ export default function ComplaintList({ onSelect }) {
     });
 
     if (res.ok) {
-      setComplaints(complaints.filter((c) => c.id !== id));
+      setComplaints((prev) => prev.filter((c) => c.id !== id));
     } else {
       alert("Failed to delete");
     }
   };
 
   return (
-    <div className="complaints-list">
+    <div>
       {complaints.map((c) => (
         <div
           key={c.id}
-          className="complaint-item"
           style={{
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "center",
             padding: "5px",
             borderBottom: "1px solid #ccc",
             cursor: "pointer",
@@ -57,19 +53,14 @@ export default function ComplaintList({ onSelect }) {
           onMouseEnter={() => setHoveredId(c.id)}
           onMouseLeave={() => setHoveredId(null)}
         >
-          <span>{c.complaint.slice(0, 60)}...</span>
+          <span>{c.complaint.slice(0, 60)}</span>
           {hoveredId === c.id && (
             <span
               onClick={(e) => {
                 e.stopPropagation();
                 handleDelete(c.id);
               }}
-              style={{
-                color: "red",
-                fontWeight: "bold",
-                cursor: "pointer",
-                marginLeft: "10px",
-              }}
+              style={{ color: "red", cursor: "pointer", fontWeight: "bold" }}
             >
               ×
             </span>

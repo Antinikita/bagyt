@@ -9,33 +9,38 @@ export default function Dashboard() {
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(false);
 
-  // функция для добавления новой жалобы
   const handleAddComplaint = () => {
-    setSelectedComplaint({ id: null, complaint: "" }); // открываем форму пустой
+    setSelectedComplaint({ id: null, complaint: "" });
   };
 
   const handleSaved = (newComplaint) => {
-    // если была добавлена новая жалоба (id === null раньше), выбираем её
     setSelectedComplaint(newComplaint);
-    setRefreshTrigger(prev => !prev); // обновляем список
+    setRefreshTrigger((prev) => !prev);
   };
 
   return (
-    <div className="dashboard-container">
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       <Header />
 
-      <div className="dashboard-body">
-        <div className="left-side">
-          <button className="add-button" onClick={handleAddComplaint}>
-            Add a Complaint
-          </button>
+      <div style={{ display: "flex", flex: 1 }}>
+        <div
+          style={{
+            width: "300px",
+            borderRight: "1px solid #ccc",
+            padding: "10px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px",
+          }}
+        >
+          <button onClick={handleAddComplaint}>Add a Complaint</button>
           <ComplaintList
             onSelect={setSelectedComplaint}
-            refreshTrigger={refreshTrigger} // триггер обновления
+            refreshTrigger={refreshTrigger}
           />
         </div>
 
-        <div className="right-side">
+        <div style={{ flex: 1, padding: "10px" }}>
           {selectedComplaint && (
             <ComplaintEditor
               complaint={selectedComplaint}

@@ -12,6 +12,11 @@ function LoginPage() {
     e.preventDefault();
 
     try {
+      // Получаем CSRF токен
+      await fetch("http://localhost:8000/sanctum/csrf-cookie", {
+        credentials: "include",
+      });
+
       const response = await fetch("http://localhost:8000/api/login", {
         method: "POST",
         credentials: "include",
@@ -33,18 +38,29 @@ function LoginPage() {
   };
 
   return (
-    <form onSubmit={handleLogin}>
+    <form
+      onSubmit={handleLogin}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        width: "300px",
+        margin: "100px auto",
+        gap: "10px",
+      }}
+    >
       <h2>Login</h2>
       <input
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="Email"
+        required
       />
       <input
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         placeholder="Password"
         type="password"
+        required
       />
       <button type="submit">Login</button>
     </form>
