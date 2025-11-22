@@ -1,64 +1,53 @@
 import React, { useState } from "react";
-import axios from "axios";
+import { useNavigate, useOutletContext } from "react-router-dom";
 
-function LoginPage({ onLogin }) {
+function LoginPage() {
+  const navigate = useNavigate();
+  const { setUser } = useOutletContext();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError("");
 
     try {
-      await axios.get("http://localhost:8000/sanctum/csrf-cookie", {
-        withCredentials: true,
+      const response = await fetch("http://localhost:8000/api/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
 
-      await axios.post(
-        "http://localhost:8000/api/login",
-        { email, password },
-        {
-          withCredentials: true,
-          headers: {
-            "X-Requested-With": "XMLHttpRequest",
-          },
-        }
-      );
+      const data = await response.json();
 
-      const { data } = await axios.get("http://localhost:8000/api/user", {
-        withCredentials: true,
-      });
-
-      onLogin(data);
+      if (response.ok) {
+        setUser(data.user);
+        navigate("/dashboard");
+      } else {
+        alert("Login failed");
+      }
     } catch (err) {
-      console.error(err);
-      setError("Invalid email or password");
+      console.log(err);
     }
   };
 
   return (
-    <div className="login-container">
-      <h2>Sign In</h2>
-      <form onSubmit={handleLogin}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        <button type="submit">Login</button>
-      </form>
-      {error && <p className="error">{error}</p>}
-    </div>
+    <form onSubmit={handleLogin}>
+      <h2>Login</h2>
+      <input
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Email"
+      />
+      <input
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="Password"
+        type="password"
+      />
+      <button type="submit">Login</button>
+    </form>
   );
 }
 

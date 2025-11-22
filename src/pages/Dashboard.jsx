@@ -1,30 +1,49 @@
-import React from "react";
-import api from "../api";
+import { useState } from "react";
+import { useOutletContext } from "react-router-dom";
+import Header from "../components/Header";
+import ComplaintList from "../components/ComplaintList";
+import ComplaintEditor from "../components/ComplaintEditor";
 
-function Dashboard({ user, onLogout }) {
-  const handleLogout = async () => {
-    try {
-      await api.post("/logout");
-      onLogout();
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
+export default function Dashboard() {
+  const { user } = useOutletContext();
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(false);
+
+  // функция для добавления новой жалобы
+  const handleAddComplaint = () => {
+    setSelectedComplaint({ id: null, complaint: "" }); // открываем форму пустой
+  };
+
+  const handleSaved = (newComplaint) => {
+    // если была добавлена новая жалоба (id === null раньше), выбираем её
+    setSelectedComplaint(newComplaint);
+    setRefreshTrigger(prev => !prev); // обновляем список
   };
 
   return (
-    <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-100 to-gray-300">
-      <div className="bg-white shadow-lg rounded-xl p-8 w-[400px] text-center">
-        <h2 className="text-2xl font-semibold mb-2">Welcome, {user.name}!</h2>
-        <p className="text-gray-600 mb-6">{user.email}</p>
-        <button
-          onClick={handleLogout}
-          className="bg-red-500 text-white py-2 px-4 rounded-md hover:bg-red-600 transition"
-        >
-          Logout
-        </button>
+    <div className="dashboard-container">
+      <Header />
+
+      <div className="dashboard-body">
+        <div className="left-side">
+          <button className="add-button" onClick={handleAddComplaint}>
+            Add a Complaint
+          </button>
+          <ComplaintList
+            onSelect={setSelectedComplaint}
+            refreshTrigger={refreshTrigger} // триггер обновления
+          />
+        </div>
+
+        <div className="right-side">
+          {selectedComplaint && (
+            <ComplaintEditor
+              complaint={selectedComplaint}
+              onSaved={handleSaved}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
 }
-
-export default Dashboard;

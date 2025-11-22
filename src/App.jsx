@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import LoginPage from "./pages/LoginPage";
-import "./App.css";
+import { Outlet, useNavigate } from "react-router-dom";
+import "./App.css"
 
 function App() {
   const [user, setUser] = useState(null);
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
@@ -14,25 +15,17 @@ function App() {
           "X-Requested-With": "XMLHttpRequest",
         },
       });
+
       setUser(null);
+      navigate("/");
     } catch (err) {
       console.error("Logout failed:", err);
     }
   };
 
   return (
-    <div className="app-container">
-      {!user ? (
-        <LoginPage onLogin={setUser} />
-      ) : (
-        <div className="user-page">
-          <h2>Welcome, {user.name}!</h2>
-          <p>Email: {user.email}</p>
-          <button onClick={handleLogout} className="logout-btn">
-            Logout
-          </button>
-        </div>
-      )}
+    <div style={{ height: "100vh" }}>
+      <Outlet context={{ user, setUser, handleLogout }} />
     </div>
   );
 }
