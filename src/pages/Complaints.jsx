@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axiosClient from '../api/axios-client';
+import ComplaintAIAnalysis from '../components/ComplaintAIAnalysis';
 
 export default function Complaints() {
   const [complaints, setComplaints] = useState([]);
@@ -213,13 +214,16 @@ export default function Complaints() {
                         </div>
                       </div>
                       
-                      <p className="text-gray-700 whitespace-pre-wrap">{complaint.complaint}</p>
+                      <p className="text-gray-700 whitespace-pre-wrap mb-4">{complaint.complaint}</p>
                       
                       {complaint.updated_at !== complaint.created_at && (
-                        <p className="text-xs text-gray-400 mt-2">
+                        <p className="text-xs text-gray-400 mb-4">
                           Updated: {formatDate(complaint.updated_at)}
                         </p>
                       )}
+
+                      {/* AI Analysis Component */}
+                      <ComplaintAIAnalysis complaint={complaint} />
                     </>
                   )}
                 </div>

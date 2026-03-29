@@ -1,11 +1,11 @@
 export default function Header({ user, logout }) {
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-6 py-4">
+    <header className="bg-white shadow-sm border-b mx-0 border-gray-200">
+      <div className="mx-auto px-3 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Complaint System
+              Bagyt
             </h1>
           </div>
           

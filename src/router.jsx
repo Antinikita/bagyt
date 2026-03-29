@@ -13,7 +13,7 @@ function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   
   if (loading) return <div>Loading...</div>;
-  return user ? children : <Navigate to="/login" replace />;
+  return user ? children : <Navigate to="/admin/dashboard" replace />;
 }
 
 // Guest Route Component  

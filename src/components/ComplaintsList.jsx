@@ -16,17 +16,30 @@ export default function ComplaintsList() {
 
   const fetchComplaints = async () => {
     try {
-      // ✅ Gets YOUR user's complaints only (user_id matches)
       const response = await sanctumRequest('get', '/complaints');
-      const mappedComplaints = (response.data || []).map(complaint => ({
+      
+      // ИСПРАВЛЕНИЕ: Извлекаем массив complaints из response.data
+      const complaintsArray = response.data.complaints || response.data || [];
+      
+      // Проверяем, что это массив
+      if (!Array.isArray(complaintsArray)) {
+        console.error('Expected array, got:', complaintsArray);
+        setComplaints([]);
+        return;
+      }
+
+      const mappedComplaints = complaintsArray.map(complaint => ({
         id: complaint.id,
-        complaint: complaint.complaint,        // ✅ Your exact field
-        created_at: complaint.created_at,      // ✅ Your timestamps
-        user_id: complaint.user_id             // ✅ Your foreign key
+        complaint: complaint.complaint,
+        created_at: complaint.created_at,
+        user_id: complaint.user_id,
+        latest_recommendation: complaint.latest_recommendation || null
       }));
+      
       setComplaints(mappedComplaints);
     } catch (error) {
       console.error('Fetch complaints failed:', error);
+      setComplaints([]); // Устанавливаем пустой массив при ошибке
     } finally {
       setLoading(false);
     }
@@ -37,13 +50,12 @@ export default function ComplaintsList() {
     
     try {
       setAdding(true);
-      // ✅ Sends to backend → auto-sets user_id from Auth::user()
       await sanctumRequest('post', '/complaints', { 
         complaint: newComplaint.trim() 
       });
       setNewComplaint('');
       setShowAddModal(false);
-      fetchComplaints(); // ✅ Refreshes YOUR complaints only
+      await fetchComplaints(); // Добавил await для гарантии обновления
     } catch (error) {
       alert('Add failed: ' + (error.response?.data?.message || error.message));
     } finally {
@@ -54,9 +66,8 @@ export default function ComplaintsList() {
   const deleteComplaint = async (id) => {
     if (confirm('Delete this complaint permanently?')) {
       try {
-        // ✅ Backend checks user_id ownership before delete
         await sanctumRequest('delete', `/complaints/${id}`);
-        fetchComplaints();
+        await fetchComplaints();
       } catch (error) {
         alert('Delete failed: ' + (error.response?.data?.message || error.message));
       }

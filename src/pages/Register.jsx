@@ -5,6 +5,8 @@ import { useNavigate, Link } from 'react-router-dom';
 export default function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [sex, setSex] = useState('');
+  const [age, setAge] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
   const [error, setError] = useState('');
@@ -25,7 +27,7 @@ export default function Register() {
     setLoading(true);
 
     try {
-      await register(name, email, password, passwordConfirmation);
+      await register(name, email,sex,age, password, passwordConfirmation);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed');
@@ -63,6 +65,28 @@ export default function Register() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-700 mb-2">Gender</label>
+            <input
+              type="text"
+              value={sex}
+              onChange={(e) => setSex(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-700 mb-2">Age</label>
+            <input
+              type="text"
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />

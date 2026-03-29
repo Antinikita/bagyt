@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }) => {
   }
 }
 
-  const register = async (name, email, password,password_confirmation) => {
+  const register = async (name, email,sex,age, password,password_confirmation) => {
   try {
   
 
@@ -59,6 +59,8 @@ export const AuthProvider = ({ children }) => {
     const response = await sanctumRequest('post', '/register', {
       name,      // ✅ Add name field
       email,
+      sex,
+      age,
       password,
       password_confirmation
     });
