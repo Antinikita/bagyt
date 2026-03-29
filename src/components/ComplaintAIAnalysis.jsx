@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { sanctumRequest } from '../config/sanctumRequest';
+import axiosClient from '../api/axios-client'; // replace sanctumRequest import
 
 export default function ComplaintAIAnalysis({ complaint }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
-  // КРИТИЧНО: Обновляем рекомендацию при изменении complaint.id
   useEffect(() => {
     if (complaint?.latest_recommendation) {
       setResult({
@@ -16,29 +15,26 @@ export default function ComplaintAIAnalysis({ complaint }) {
         recommendation_id: complaint.latest_recommendation.id,
       });
     } else {
-      // Если нет сохраненной рекомендации, очищаем результат
       setResult(null);
     }
-    // Сбрасываем ошибку при переключении
     setError(null);
-  }, [complaint?.id, complaint?.latest_recommendation]); // Зависимость от ID жалобы
+  }, [complaint?.id, complaint?.latest_recommendation]);
 
   const handleAnalyze = async () => {
     try {
       setAnalyzing(true);
       setError(null);
-      
-      const response = await sanctumRequest('post', '/complaints/analyze', {
+
+      const { data } = await axiosClient.post('/complaints/analyze', { // replace sanctumRequest
         complaint_id: complaint.id
       });
 
       setResult({
-        ...response.data,
+        ...data,
         is_cached: false,
       });
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to analyze complaint');
-      console.error('AI Analysis Error:', err);
     } finally {
       setAnalyzing(false);
     }

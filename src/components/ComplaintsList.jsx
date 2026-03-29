@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { sanctumRequest } from '../config/sanctumRequest';
+import axiosClient from '../api/axios-client';
 
 export default function ComplaintsList() {
   const { complaintId } = useParams();
@@ -16,30 +16,18 @@ export default function ComplaintsList() {
 
   const fetchComplaints = async () => {
     try {
-      const response = await sanctumRequest('get', '/complaints');
-      
-      // ИСПРАВЛЕНИЕ: Извлекаем массив complaints из response.data
-      const complaintsArray = response.data.complaints || response.data || [];
-      
-      // Проверяем, что это массив
-      if (!Array.isArray(complaintsArray)) {
-        console.error('Expected array, got:', complaintsArray);
-        setComplaints([]);
-        return;
-      }
-
-      const mappedComplaints = complaintsArray.map(complaint => ({
-        id: complaint.id,
-        complaint: complaint.complaint,
-        created_at: complaint.created_at,
-        user_id: complaint.user_id,
-        latest_recommendation: complaint.latest_recommendation || null
-      }));
-      
-      setComplaints(mappedComplaints);
+      const { data } = await axiosClient.get('/complaints');
+      const complaintsArray = Array.isArray(data) ? data : data.complaints || [];
+      setComplaints(complaintsArray.map(c => ({
+        id: c.id,
+        complaint: c.complaint,
+        created_at: c.created_at,
+        user_id: c.user_id,
+        latest_recommendation: c.latest_recommendation || null
+      })));
     } catch (error) {
       console.error('Fetch complaints failed:', error);
-      setComplaints([]); // Устанавливаем пустой массив при ошибке
+      setComplaints([]);
     } finally {
       setLoading(false);
     }
@@ -47,15 +35,12 @@ export default function ComplaintsList() {
 
   const addComplaint = async () => {
     if (!newComplaint.trim()) return;
-    
     try {
       setAdding(true);
-      await sanctumRequest('post', '/complaints', { 
-        complaint: newComplaint.trim() 
-      });
+      await axiosClient.post('/complaints', { complaint: newComplaint.trim() });
       setNewComplaint('');
       setShowAddModal(false);
-      await fetchComplaints(); // Добавил await для гарантии обновления
+      await fetchComplaints();
     } catch (error) {
       alert('Add failed: ' + (error.response?.data?.message || error.message));
     } finally {
@@ -66,7 +51,7 @@ export default function ComplaintsList() {
   const deleteComplaint = async (id) => {
     if (confirm('Delete this complaint permanently?')) {
       try {
-        await sanctumRequest('delete', `/complaints/${id}`);
+        await axiosClient.delete(`/complaints/${id}`);
         await fetchComplaints();
       } catch (error) {
         alert('Delete failed: ' + (error.response?.data?.message || error.message));
@@ -107,7 +92,7 @@ export default function ComplaintsList() {
                 <h2 className="text-3xl font-bold text-gray-900">New Complaint</h2>
                 <p className="text-gray-600 mt-2">Describe your issue in detail</p>
               </div>
-              
+
               <div className="p-8">
                 <textarea
                   rows={8}
@@ -122,7 +107,7 @@ export default function ComplaintsList() {
                   {newComplaint.length}/10000 characters
                 </div>
               </div>
-              
+
               <div className="p-8 border-t border-gray-200 bg-gray-50 flex space-x-4">
                 <button
                   type="button"
@@ -172,8 +157,8 @@ export default function ComplaintsList() {
                 key={complaint.id}
                 to={`/admin/complaints/${complaint.id}`}
                 className={`group relative block p-8 rounded-3xl transition-all duration-300 border-4 hover:shadow-2xl hover:-translate-y-2 hover:border-blue-400 ${
-                  complaintId === complaint.id.toString() 
-                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 shadow-2xl ring-4 ring-blue-200/50' 
+                  complaintId === complaint.id.toString()
+                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 shadow-2xl ring-4 ring-blue-200/50'
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/50 bg-white'
                 }`}
               >
@@ -189,16 +174,16 @@ export default function ComplaintsList() {
                       <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      <span>{new Date(complaint.created_at).toLocaleDateString('en-US', { 
-                        weekday: 'short', 
-                        year: 'numeric', 
-                        month: 'short', 
-                        day: 'numeric' 
+                      <span>{new Date(complaint.created_at).toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
                       })}</span>
                     </div>
                   </div>
                 </div>
-                
+
                 {/* DELETE BUTTON */}
                 <button
                   onClick={(e) => {

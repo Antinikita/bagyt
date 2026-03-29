@@ -18,12 +18,11 @@ export default function Complaints() {
   const fetchComplaints = async () => {
     try {
       setLoading(true);
-      const response = await axiosClient.get('/complaints');
-      setComplaints(response.data.complaints);
+      const { data } = await axiosClient.get('/complaints');
+      setComplaints(Array.isArray(data) ? data : data.complaints || []); // handle both
       setError(null);
     } catch (err) {
       setError('Failed to load complaints');
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -32,14 +31,11 @@ export default function Complaints() {
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!newComplaint.trim()) return;
-
     try {
       setSubmitting(true);
-      await axiosClient.get('/sanctum/csrf-cookie');
-      const response = await axiosClient.post('/complaints', {
-        complaint: newComplaint
-      });
-      setComplaints([response.data.complaint, ...complaints]);
+      // removed: axiosClient.get('/sanctum/csrf-cookie') — not needed for token auth
+      const { data } = await axiosClient.post('/complaints', { complaint: newComplaint });
+      setComplaints([data, ...complaints]); // fix: was response.data.complaint
       setNewComplaint('');
       setError(null);
     } catch (err) {
@@ -51,14 +47,9 @@ export default function Complaints() {
 
   const handleUpdate = async (id) => {
     if (!editText.trim()) return;
-
     try {
-      const response = await axiosClient.put(`/complaints/${id}`, {
-        complaint: editText
-      });
-      setComplaints(complaints.map(c => 
-        c.id === id ? response.data.complaint : c
-      ));
+      const { data } = await axiosClient.put(`/complaints/${id}`, { complaint: editText });
+      setComplaints(complaints.map(c => c.id === id ? data : c)); // fix: was response.data.complaint
       setEditingId(null);
       setEditText('');
       setError(null);
@@ -69,7 +60,6 @@ export default function Complaints() {
 
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this complaint?')) return;
-
     try {
       await axiosClient.delete(`/complaints/${id}`);
       setComplaints(complaints.filter(c => c.id !== id));
@@ -79,23 +69,10 @@ export default function Complaints() {
     }
   };
 
-  const startEdit = (complaint) => {
-    setEditingId(complaint.id);
-    setEditText(complaint.complaint);
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditText('');
-  };
-
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit'
     });
   };
 
@@ -111,7 +88,7 @@ export default function Complaints() {
     <div className="max-w-4xl mx-auto p-6">
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">My Complaints</h1>
-        
+
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
             {error}
@@ -131,12 +108,8 @@ export default function Complaints() {
               maxLength="1000"
               required
             />
-            
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">
-                {newComplaint.length}/1000 characters
-              </span>
-              
+              <span className="text-sm text-gray-500">{newComplaint.length}/1000 characters</span>
               <button
                 type="submit"
                 disabled={submitting || !newComplaint.trim()}
@@ -153,7 +126,7 @@ export default function Complaints() {
           <h2 className="text-xl font-semibold text-gray-700 mb-4">
             All Complaints ({complaints.length})
           </h2>
-          
+
           {complaints.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -167,7 +140,6 @@ export default function Complaints() {
               {complaints.map((complaint) => (
                 <div key={complaint.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                   {editingId === complaint.id ? (
-                    // Edit Mode
                     <div>
                       <textarea
                         value={editText}
@@ -177,52 +149,23 @@ export default function Complaints() {
                         maxLength="1000"
                       />
                       <div className="flex gap-2 mt-3">
-                        <button
-                          onClick={() => handleUpdate(complaint.id)}
-                          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={cancelEdit}
-                          className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-                        >
-                          Cancel
-                        </button>
+                        <button onClick={() => handleUpdate(complaint.id)} className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Save</button>
+                        <button onClick={() => { setEditingId(null); setEditText(''); }} className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Cancel</button>
                       </div>
                     </div>
                   ) : (
-                    // View Mode
                     <>
                       <div className="flex justify-between items-start mb-3">
                         <span className="text-xs text-gray-500">{formatDate(complaint.created_at)}</span>
-                        
                         <div className="flex gap-2">
-                          <button
-                            onClick={() => startEdit(complaint)}
-                            className="text-blue-500 hover:text-blue-700 text-sm font-medium"
-                          >
-                            Edit
-                          </button>
-                          
-                          <button
-                            onClick={() => handleDelete(complaint.id)}
-                            className="text-red-500 hover:text-red-700 text-sm font-medium"
-                          >
-                            Delete
-                          </button>
+                          <button onClick={() => { setEditingId(complaint.id); setEditText(complaint.complaint); }} className="text-blue-500 hover:text-blue-700 text-sm font-medium">Edit</button>
+                          <button onClick={() => handleDelete(complaint.id)} className="text-red-500 hover:text-red-700 text-sm font-medium">Delete</button>
                         </div>
                       </div>
-                      
                       <p className="text-gray-700 whitespace-pre-wrap mb-4">{complaint.complaint}</p>
-                      
                       {complaint.updated_at !== complaint.created_at && (
-                        <p className="text-xs text-gray-400 mb-4">
-                          Updated: {formatDate(complaint.updated_at)}
-                        </p>
+                        <p className="text-xs text-gray-400 mb-4">Updated: {formatDate(complaint.updated_at)}</p>
                       )}
-
-                      {/* AI Analysis Component */}
                       <ComplaintAIAnalysis complaint={complaint} />
                     </>
                   )}

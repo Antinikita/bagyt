@@ -1,7 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import axiosClient from "../api/axios-client";
-import { sanctumRequest } from "../config/sanctumRequest";
-import { getCsrfToken } from "../config/csrf";
 
 const AuthContext = createContext({
   user: null,
@@ -15,104 +13,45 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Проверка авторизации
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     axiosClient.get('/user')
       .then(({ data }) => setUser(data))
-      .catch(() => setUser(null))
+      .catch(() => {
+        localStorage.removeItem('token');
+        setUser(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
-  async function login(email, password) {
-  try {
-    // Make sure the CSRF cookie and token are fresh by calling this first:
-    
+  const login = async (email, password) => {
+    const { data } = await axiosClient.post('/login', { email, password });
+    localStorage.setItem('token', data.token);
+    setUser(data.user);
+  };
 
-    // Now attempt login with email/password, passing the CSRF token in header (sanctumRequest does that)
-    const response = await sanctumRequest('post', '/login', {
-      email,
-      password,
+  const register = async (name, email, sex, age, password, password_confirmation) => {
+    const { data } = await axiosClient.post('/register', {
+      name, email, sex, age, password, password_confirmation
     });
-
-    // After login success, fetch authenticated user info
-    const userResponse = await sanctumRequest('get', '/user');
-
-    // // Handle setting user in your app state/context
-    // const user = userResponse.data;
-    // // e.g. setUser(user);
-    
-    const { data } = await axiosClient.get('/user');     
-    
-    setUser(data);
-
-  } catch (error) {
-    console.error('Login attempt failed:', error);
-    throw error;
-  }
-}
-
-  const register = async (name, email,sex,age, password,password_confirmation) => {
-  try {
-  
-
-    // Register new user
-    const response = await sanctumRequest('post', '/register', {
-      name,      // ✅ Add name field
-      email,
-      sex,
-      age,
-      password,
-      password_confirmation
-    });
-
-    console.log('✅ Registration successful:', response.data);
-
-    // Auto-login after registration (optional but smooth UX)
-    const userResponse = await sanctumRequest('get', '/user');
-    const user = userResponse.data;
-    
-    console.log('✅ Auto-logged in user:', user);
-    return user;  // Return user for context
-
-  } catch (error) {
-    console.error('❌ Registration failed:', error.response?.data || error.message);
-    throw error;
-  }
-};
-
+    localStorage.setItem('token', data.token);
+    setUser(data.user);
+  };
 
   const logout = async () => {
-  try {
-    // Get fresh CSRF token (same pattern)
-    const csrfToken = await getCsrfToken();
-    if (!csrfToken) {
-      console.warn('No CSRF token, but continuing logout');
+    try {
+      await axiosClient.post('/logout');
+    } catch (e) {
+      // silent fail
+    } finally {
+      localStorage.removeItem('token');
+      setUser(null);
     }
-
-    // Call logout endpoint
-    const response = await sanctumRequest('post', '/logout');
-    
-    console.log('✅ Logout successful:', response.data);
-
-    // Clear local state
-    setUser(null);
-    
-    // Navigate to login
-    navigate('/login', { replace: true });
-    
-    return true;
-
-  } catch (error) {
-    console.error('❌ Logout failed:', error.response?.data || error.message);
-    
-    // Force clear state even if API fails
-    setUser(null);
-    navigate('/login', { replace: true });
-    
-    return false;
-  }
-};
-
+  };
 
   return (
     <AuthContext.Provider value={{ user, login, register, logout, loading }}>
