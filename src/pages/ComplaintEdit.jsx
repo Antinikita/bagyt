@@ -1,56 +1,76 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axiosClient from '../api/axios-client';
+import { sanctumRequest } from '../config/sanctumRequest';
+import { parseApiError } from '../utils/apiError';
 import ComplaintAIAnalysis from '../components/ComplaintAIAnalysis';
+import Button from '../components/ui/Button';
+import ErrorBanner from '../components/ui/ErrorBanner';
 
 export default function ComplaintEdit() {
   const { complaintId } = useParams();
   const navigate = useNavigate();
+  const isNew = complaintId === 'new';
   const [complaint, setComplaint] = useState({ complaint: '' });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(isNew);
+  const [error, setError] = useState('');
+
+  const fetchComplaint = useCallback(
+    async (signal) => {
+      try {
+        setError('');
+        const response = await sanctumRequest('get', `/complaints/${complaintId}`, {}, { signal });
+        setComplaint(response.data);
+        setIsEditing(false);
+      } catch (err) {
+        if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
+        setError(parseApiError(err, 'Failed to load complaint'));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [complaintId],
+  );
 
   useEffect(() => {
-    if (complaintId === 'new') {
-      setIsEditing(true);
-      setLoading(false);
-      return;
-    }
-    fetchComplaint();
-  }, [complaintId]);
-
-  const fetchComplaint = async () => {
-    try {
-      const { data } = await axiosClient.get(`/complaints/${complaintId}`);
-      setComplaint(data);
-      setIsEditing(false);
-    } catch (error) {
-      alert('Failed to load complaint');
-      navigate('/admin/dashboard');
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (isNew) return;
+    const controller = new AbortController();
+    fetchComplaint(controller.signal);
+    return () => controller.abort();
+  }, [isNew, fetchComplaint]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
+    setError('');
+
     try {
       if (complaintId === 'new') {
-        await axiosClient.post('/complaints', { complaint: complaint.complaint });
-        navigate('/admin/dashboard');
+        const { data } = await sanctumRequest('post', '/complaints', {
+          complaint: complaint.complaint,
+        });
+        const newId = data?.complaint?.id ?? data?.id;
+        if (newId) {
+          navigate(`/admin/complaints/${newId}`, { replace: true });
+        } else {
+          navigate('/admin/dashboard', { replace: true });
+        }
       } else {
-        await axiosClient.put(`/complaints/${complaintId}`, { complaint: complaint.complaint });
+        await sanctumRequest('put', `/complaints/${complaintId}`, {
+          complaint: complaint.complaint,
+        });
         setIsEditing(false);
-        fetchComplaint();
+        await fetchComplaint();
       }
-    } catch (error) {
-      alert('Failed to save complaint');
+    } catch (err) {
+      setError(parseApiError(err, 'Failed to save complaint'));
     } finally {
       setSaving(false);
     }
   };
+
+  const handleEdit = () => setIsEditing(true);
 
   const handleCancel = () => {
     if (complaintId === 'new') {
@@ -63,96 +83,111 @@ export default function ComplaintEdit() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      <div className="p-8 flex items-center justify-center gap-3" role="status">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500" />
+        <span className="text-gray-600 dark:text-gray-300">Loading complaint…</span>
       </div>
     );
   }
 
+  const heading =
+    complaintId === 'new' ? 'New complaint' : isEditing ? 'Edit complaint' : 'View complaint';
+
   return (
-    <div className="p-8 max-w-2xl mx-auto">
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-            {complaintId === 'new' ? 'New Complaint' : isEditing ? 'Edit Complaint' : 'View Complaint'}
-          </h1>
-          <button
-            onClick={() => navigate('/admin/dashboard')}
-            className="px-6 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
-          >
-            Back to List
-          </button>
+    <div className="p-6 max-w-2xl mx-auto">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-xl p-6 dark:bg-deep-800 dark:border-deep-700">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="t-h1">{heading}</h1>
+          <Button variant="ghost" onClick={() => navigate('/admin/dashboard')}>
+            Back
+          </Button>
         </div>
 
+        {error && (
+          <div className="mb-5">
+            <ErrorBanner message={error} />
+          </div>
+        )}
+
         {isEditing ? (
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Complaint</label>
+              <label
+                htmlFor="complaint-text"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5"
+              >
+                Complaint
+              </label>
               <textarea
+                id="complaint-text"
                 rows={10}
                 value={complaint.complaint}
                 onChange={(e) => setComplaint({ ...complaint, complaint: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-vertical"
-                placeholder="Describe your complaint..."
+                className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 placeholder-gray-400 transition-[border-color,box-shadow] duration-150 focus:outline-none focus:ring-2 focus:border-brand-500 focus:ring-brand-100 resize-vertical dark:bg-deep-900 dark:text-gray-100 dark:border-deep-700"
+                placeholder="Describe your complaint…"
+                maxLength={1000}
                 required
               />
+              <div className="text-right text-xs text-gray-500 mt-1">
+                {complaint.complaint.length}/1000 characters
+              </div>
             </div>
 
-            <div className="flex justify-end space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="px-6 py-3 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
-                disabled={saving}
-              >
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="secondary" onClick={handleCancel} disabled={saving}>
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
                 type="submit"
-                className="px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50"
+                loading={saving}
                 disabled={saving}
               >
-                {saving ? (
-                  <div className="flex items-center space-x-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>Saving...</span>
-                  </div>
-                ) : complaintId === 'new' ? 'Create Complaint' : 'Update Complaint'}
-              </button>
+                {saving
+                  ? 'Saving…'
+                  : complaintId === 'new'
+                    ? 'Create complaint'
+                    : 'Update complaint'}
+              </Button>
             </div>
           </form>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div>
-              <div className="flex justify-between items-center mb-4">
-                <label className="block text-sm font-medium text-gray-700">Complaint Details</label>
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                >
+              <div className="flex justify-between items-center mb-3">
+                <span className="t-section">Complaint details</span>
+                <Button variant="ghost" onClick={handleEdit}>
                   Edit
-                </button>
+                </Button>
               </div>
-              <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
-                <p className="text-gray-900 whitespace-pre-wrap leading-relaxed">
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-5 dark:bg-deep-900 dark:border-deep-700">
+                <p className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed">
                   {complaint.complaint}
                 </p>
               </div>
 
               {complaint.created_at && (
                 <p className="text-xs text-gray-500 mt-2">
-                  Created: {new Date(complaint.created_at).toLocaleString('en-US', {
-                    year: 'numeric', month: 'long', day: 'numeric',
-                    hour: '2-digit', minute: '2-digit'
+                  Created:{' '}
+                  {new Date(complaint.created_at).toLocaleString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
                   })}
                 </p>
               )}
 
               {complaint.updated_at && complaint.updated_at !== complaint.created_at && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Updated: {new Date(complaint.updated_at).toLocaleString('en-US', {
-                    year: 'numeric', month: 'long', day: 'numeric',
-                    hour: '2-digit', minute: '2-digit'
+                  Updated:{' '}
+                  {new Date(complaint.updated_at).toLocaleString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
                   })}
                 </p>
               )}

@@ -1,6 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import axiosClient from '../api/axios-client';
+import { Plus, Trash2, Calendar, FileText } from 'lucide-react';
+import { sanctumRequest } from '../config/sanctumRequest';
+import { parseApiError } from '../utils/apiError';
+import Button from './ui/Button';
 
 export default function ComplaintsList() {
   const { complaintId } = useParams();
@@ -9,200 +12,289 @@ export default function ComplaintsList() {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [listError, setListError] = useState('');
+  const [modalError, setModalError] = useState('');
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    fetchComplaints();
-  }, []);
-
-  const fetchComplaints = async () => {
+  const fetchComplaints = useCallback(async (signal) => {
     try {
-      const { data } = await axiosClient.get('/complaints');
-      const complaintsArray = Array.isArray(data) ? data : data.complaints || [];
-      setComplaints(complaintsArray.map(c => ({
+      setListError('');
+      const response = await sanctumRequest('get', '/complaints', {}, { signal });
+      const body = response.data;
+      const complaintsArray = Array.isArray(body)
+        ? body
+        : Array.isArray(body?.complaints)
+          ? body.complaints
+          : Array.isArray(body?.complaints?.data)
+            ? body.complaints.data
+            : [];
+      const mapped = complaintsArray.map((c) => ({
         id: c.id,
         complaint: c.complaint,
         created_at: c.created_at,
         user_id: c.user_id,
-        latest_recommendation: c.latest_recommendation || null
-      })));
+        latest_recommendation: c.latest_recommendation || null,
+      }));
+      setComplaints(mapped);
     } catch (error) {
-      console.error('Fetch complaints failed:', error);
+      if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') return;
+      setListError(parseApiError(error, 'Failed to load complaints'));
       setComplaints([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchComplaints(controller.signal);
+    return () => controller.abort();
+  }, [fetchComplaints]);
 
   const addComplaint = async () => {
-    if (!newComplaint.trim()) return;
+    const text = newComplaint.trim();
+    if (!text) return;
     try {
       setAdding(true);
-      await axiosClient.post('/complaints', { complaint: newComplaint.trim() });
+      setModalError('');
+      await sanctumRequest('post', '/complaints', { complaint: text });
       setNewComplaint('');
       setShowAddModal(false);
       await fetchComplaints();
     } catch (error) {
-      alert('Add failed: ' + (error.response?.data?.message || error.message));
+      setModalError(parseApiError(error, 'Failed to add complaint'));
     } finally {
       setAdding(false);
     }
   };
 
-  const deleteComplaint = async (id) => {
-    if (confirm('Delete this complaint permanently?')) {
-      try {
-        await axiosClient.delete(`/complaints/${id}`);
-        await fetchComplaints();
-      } catch (error) {
-        alert('Delete failed: ' + (error.response?.data?.message || error.message));
-      }
+  const confirmDelete = async () => {
+    if (!pendingDeleteId) return;
+    try {
+      setDeleting(true);
+      await sanctumRequest('delete', `/complaints/${pendingDeleteId}`);
+      setPendingDeleteId(null);
+      await fetchComplaints();
+    } catch (error) {
+      setListError(parseApiError(error, 'Failed to delete complaint'));
+      setPendingDeleteId(null);
+    } finally {
+      setDeleting(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      <div className="p-8 flex items-center justify-center" role="status">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500" />
+        <span className="sr-only">Loading complaints…</span>
       </div>
     );
   }
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <div className="space-y-6">
-        {/* ADD BUTTON */}
-        <button
-          onClick={() => setShowAddModal(true)}
-          disabled={adding}
-          className="block w-full p-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl hover:from-blue-600 hover:to-blue-700 transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:-translate-y-1 disabled:opacity-50 text-lg font-semibold"
-        >
-          <div className="flex items-center justify-center">
-            <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            {adding ? 'Adding Complaint...' : 'Add New Complaint'}
-          </div>
-        </button>
+    <div className="space-y-5">
+      <button
+        onClick={() => {
+          setModalError('');
+          setShowAddModal(true);
+        }}
+        disabled={adding}
+        className="block w-full rounded-2xl bg-brand-500 text-deep-700 hover:bg-brand-600 hover:text-white p-5 text-base font-semibold shadow-brand transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        <span className="inline-flex items-center justify-center gap-2">
+          <Plus className="h-5 w-5" />
+          {adding ? 'Adding complaint…' : 'Add new complaint'}
+        </span>
+      </button>
 
-        {/* ADD MODAL */}
+        {listError && (
+          <div
+            role="alert"
+            aria-live="polite"
+            className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg"
+          >
+            {listError}
+          </div>
+        )}
+
         {showAddModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-              <div className="p-8 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-blue-50">
-                <h2 className="text-3xl font-bold text-gray-900">New Complaint</h2>
-                <p className="text-gray-600 mt-2">Describe your issue in detail</p>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-complaint-heading"
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={() => !adding && setShowAddModal(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && !adding) setShowAddModal(false);
+            }}
+          >
+            <div
+              className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-8 border-b border-gray-200 bg-grad-ai">
+                <h2 id="new-complaint-heading" className="t-h1">
+                  New complaint
+                </h2>
+                <p className="text-gray-600 mt-2">Describe your issue in detail.</p>
               </div>
 
               <div className="p-8">
+                <label htmlFor="new-complaint-textarea" className="sr-only">
+                  New complaint
+                </label>
                 <textarea
+                  id="new-complaint-textarea"
                   rows={8}
+                  autoFocus
                   value={newComplaint}
                   onChange={(e) => setNewComplaint(e.target.value)}
-                  placeholder="Please describe your complaint in as much detail as possible..."
-                  className="w-full p-6 border border-gray-300 rounded-2xl focus:ring-4 focus:ring-blue-500 focus:border-transparent resize-none text-lg leading-relaxed"
+                  placeholder="Please describe your complaint in as much detail as possible…"
+                  className="w-full p-6 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500 resize-none text-lg leading-relaxed"
                   disabled={adding}
-                  maxLength={10000}
+                  maxLength={1000}
                 />
                 <div className="text-right text-sm text-gray-500 mt-2">
-                  {newComplaint.length}/10000 characters
+                  {newComplaint.length}/1000 characters
                 </div>
+                {modalError && (
+                  <div
+                    role="alert"
+                    aria-live="polite"
+                    className="mt-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg"
+                  >
+                    {modalError}
+                  </div>
+                )}
               </div>
 
-              <div className="p-8 border-t border-gray-200 bg-gray-50 flex space-x-4">
-                <button
-                  type="button"
+              <div className="p-6 border-t border-gray-200 bg-gray-50 flex gap-3">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 px-8 py-4 text-lg font-medium text-gray-700 bg-white border-2 border-gray-300 rounded-2xl hover:border-gray-400 hover:shadow-md transition-all duration-200 disabled:opacity-50"
                   disabled={adding}
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
+                  className="flex-1"
                   onClick={addComplaint}
                   disabled={!newComplaint.trim() || adding}
-                  className="flex-1 px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl hover:from-blue-600 hover:to-blue-700 shadow-xl hover:shadow-2xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 flex items-center justify-center space-x-3"
+                  loading={adding}
                 >
-                  {adding ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      <span>Adding Complaint...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
-                      <span>Add Complaint</span>
-                    </>
-                  )}
-                </button>
+                  {adding ? 'Adding complaint…' : 'Add complaint'}
+                </Button>
               </div>
             </div>
           </div>
         )}
 
-        {/* COMPLAINTS LIST */}
-        <div className="space-y-4">
+        {pendingDeleteId && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-heading"
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={() => !deleting && setPendingDeleteId(null)}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 id="delete-heading" className="t-h2 mb-3">
+                Delete this complaint?
+              </h2>
+              <p className="text-gray-600 mb-6">This cannot be undone.</p>
+              <div className="flex gap-3">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => setPendingDeleteId(null)}
+                  disabled={deleting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="danger"
+                  className="flex-1"
+                  onClick={confirmDelete}
+                  disabled={deleting}
+                  loading={deleting}
+                >
+                  {deleting ? 'Deleting…' : 'Delete'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-3">
           {complaints.length === 0 ? (
-            <div className="text-center py-20 text-gray-500 bg-gray-50 rounded-3xl p-12 border-4 border-dashed border-gray-200">
-              <svg className="w-24 h-24 mx-auto mb-8 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">No complaints yet</h3>
-              <p className="text-lg">Click "Add New Complaint" to get started</p>
+            <div className="text-center py-14 text-gray-500 bg-gray-50 rounded-2xl p-10 border-4 border-dashed border-gray-300">
+              <FileText className="w-14 h-14 mx-auto mb-6 opacity-40" />
+              <h3 className="t-h2 mb-2">No complaints yet</h3>
+              <p className="text-sm">Click &ldquo;Add new complaint&rdquo; to get started.</p>
             </div>
           ) : (
-            complaints.map((complaint) => (
-              <Link
-                key={complaint.id}
-                to={`/admin/complaints/${complaint.id}`}
-                className={`group relative block p-8 rounded-3xl transition-all duration-300 border-4 hover:shadow-2xl hover:-translate-y-2 hover:border-blue-400 ${
-                  complaintId === complaint.id.toString()
-                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 shadow-2xl ring-4 ring-blue-200/50'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/50 bg-white'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 truncate mb-3 leading-tight">
-                      {complaint.complaint.substring(0, 60)}...
-                    </h3>
-                    <p className="text-sm text-gray-600 leading-relaxed line-clamp-3 mb-4">
-                      {complaint.complaint}
-                    </p>
-                    <div className="flex items-center text-xs text-gray-500">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <span>{new Date(complaint.created_at).toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                      })}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* DELETE BUTTON */}
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    deleteComplaint(complaint.id);
-                  }}
-                  className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-all duration-300 p-3 rounded-2xl hover:bg-red-500 hover:text-white hover:shadow-2xl hover:scale-110 bg-white/80 backdrop-blur-sm shadow-lg border border-gray-200 hover:border-red-300"
-                  title="Delete complaint"
+            complaints.map((complaint) => {
+              const preview =
+                complaint.complaint.length > 60
+                  ? `${complaint.complaint.slice(0, 60)}…`
+                  : complaint.complaint;
+              const isActive = complaintId === complaint.id.toString();
+              return (
+                <Link
+                  key={complaint.id}
+                  to={`/admin/complaints/${complaint.id}`}
+                  className={`group relative block p-5 rounded-2xl transition-all duration-200 border-2 ${
+                    isActive
+                      ? 'bg-brand-50 border-brand-500 shadow-brand'
+                      : 'border-gray-200 hover:border-brand-300 hover:bg-brand-50/40 bg-white hover:shadow-brand'
+                  } dark:bg-deep-800 dark:border-deep-700 dark:hover:border-brand-500`}
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </Link>
-            ))
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base font-semibold text-gray-900 dark:text-white group-hover:text-brand-700 dark:group-hover:text-brand-300 truncate mb-1.5">
+                        {preview}
+                      </h3>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-2 mb-3">
+                        {complaint.complaint}
+                      </p>
+                      <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>
+                          {new Date(complaint.created_at).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      aria-label="Delete complaint"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setPendingDeleteId(complaint.id);
+                      }}
+                      className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1.5 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+                      title="Delete complaint"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </Link>
+              );
+            })
           )}
         </div>
-      </div>
     </div>
   );
 }

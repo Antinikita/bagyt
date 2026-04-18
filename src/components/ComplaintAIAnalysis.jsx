@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
-import axiosClient from '../api/axios-client'; // replace sanctumRequest import
+import { Sparkles, Check } from 'lucide-react';
+import { sanctumRequest } from '../config/sanctumRequest';
+import { parseApiError } from '../utils/apiError';
+import Button from './ui/Button';
+import ErrorBanner from './ui/ErrorBanner';
 
 export default function ComplaintAIAnalysis({ complaint }) {
   const [analyzing, setAnalyzing] = useState(false);
@@ -25,107 +29,98 @@ export default function ComplaintAIAnalysis({ complaint }) {
       setAnalyzing(true);
       setError(null);
 
-      const { data } = await axiosClient.post('/complaints/analyze', { // replace sanctumRequest
-        complaint_id: complaint.id
+      const response = await sanctumRequest('post', '/complaints/analyze', {
+        complaint_id: complaint.id,
       });
 
       setResult({
-        ...data,
+        ...response.data,
         is_cached: false,
       });
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to analyze complaint');
+      setError(parseApiError(err, 'Failed to analyze complaint'));
     } finally {
       setAnalyzing(false);
     }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (dateString) =>
+    new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
-  };
 
   return (
-    <div className="mt-4 border-t pt-4">
-      <div className="flex items-center justify-between mb-4">
-        <button
+    <div className="mt-2 border-t border-gray-200 dark:border-deep-700 pt-5">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <Button
+          variant="primary"
           onClick={handleAnalyze}
           disabled={analyzing}
-          className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          loading={analyzing}
         >
-          {analyzing ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              <span>Analyzing with AI...</span>
-            </>
-          ) : (
-            <>
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
-              <span>{result ? 'Re-analyze with AI' : 'Analyze with AI'}</span>
-            </>
-          )}
-        </button>
+          <span className="inline-flex items-center gap-2">
+            {!analyzing && <Sparkles className="h-4 w-4" />}
+            {analyzing
+              ? 'Analyzing with AI…'
+              : result
+                ? 'Re-analyze with AI'
+                : 'Analyze with AI'}
+          </span>
+        </Button>
 
         {result?.saved_at && (
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             {result.is_cached ? 'Saved' : 'Last analyzed'}: {formatDate(result.saved_at)}
           </span>
         )}
       </div>
 
-      {error && (
-        <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          <p className="font-semibold">Error:</p>
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
+      {error && <ErrorBanner message={error} />}
 
       {result && result.reply && (
-        <div className="mt-4 bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-6">
+        <div className="mt-4 bg-grad-ai border border-brand-200 rounded-2xl p-6 shadow-brand dark:border-deep-700">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-purple-900 flex items-center gap-2">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              AI Recommendation
+            <h3 className="t-h3 inline-flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-brand-700 dark:text-brand-300" />
+              AI recommendation
             </h3>
 
             {result.is_cached && (
-              <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+              <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold">
                 Saved
               </span>
             )}
           </div>
-          
-          <div className="text-gray-900 bg-white p-4 rounded-lg whitespace-pre-wrap leading-relaxed shadow-sm">
+
+          <div className="text-gray-900 dark:text-gray-100 bg-white dark:bg-deep-800 p-4 rounded-xl whitespace-pre-wrap leading-relaxed shadow-sm">
             {result.reply}
           </div>
 
           {result.recommendation_id && !result.is_cached && (
-            <p className="mt-3 text-sm text-green-700 flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              Recommendation saved successfully
+            <p className="mt-3 text-sm text-emerald-700 inline-flex items-center gap-2">
+              <Check className="h-4 w-4" />
+              Recommendation saved successfully.
             </p>
           )}
 
-          {/* Опциональные метаданные */}
           {result.sentiment && (
             <div className="mt-4">
-              <span className="text-sm font-medium text-gray-700">Sentiment:</span>
-              <span className={`ml-2 px-3 py-1 rounded-full text-sm font-semibold ${
-                result.sentiment === 'positive' ? 'bg-green-100 text-green-800' :
-                result.sentiment === 'negative' ? 'bg-red-100 text-red-800' :
-                'bg-yellow-100 text-yellow-800'
-              }`}>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Sentiment:
+              </span>
+              <span
+                className={`ml-2 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                  result.sentiment === 'positive'
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : result.sentiment === 'negative'
+                      ? 'bg-red-50 text-red-700'
+                      : 'bg-amber-50 text-amber-700'
+                }`}
+              >
                 {result.sentiment}
               </span>
             </div>
@@ -133,8 +128,10 @@ export default function ComplaintAIAnalysis({ complaint }) {
 
           {result.category && (
             <div className="mt-2">
-              <span className="text-sm font-medium text-gray-700">Category:</span>
-              <span className="ml-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Category:
+              </span>
+              <span className="ml-2 px-2.5 py-1 bg-brand-50 text-brand-700 rounded-full text-xs font-semibold">
                 {result.category}
               </span>
             </div>
@@ -142,12 +139,18 @@ export default function ComplaintAIAnalysis({ complaint }) {
 
           {result.priority && (
             <div className="mt-2">
-              <span className="text-sm font-medium text-gray-700">Priority:</span>
-              <span className={`ml-2 px-3 py-1 rounded-full text-sm font-semibold ${
-                result.priority === 'high' ? 'bg-red-100 text-red-800' :
-                result.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-green-100 text-green-800'
-              }`}>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Priority:
+              </span>
+              <span
+                className={`ml-2 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                  result.priority === 'high'
+                    ? 'bg-red-50 text-red-700'
+                    : result.priority === 'medium'
+                      ? 'bg-amber-50 text-amber-700'
+                      : 'bg-emerald-50 text-emerald-700'
+                }`}
+              >
                 {result.priority}
               </span>
             </div>

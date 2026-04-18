@@ -5,7 +5,7 @@ export default function DefaultLayout() {
   const { user, logout, loading } = useAuth();
 
   if (loading) {
-    return <div className="p-10 text-center">Loading...</div>;
+    return <div className="p-10 text-center">Loading…</div>;
   }
 
   if (!user) {

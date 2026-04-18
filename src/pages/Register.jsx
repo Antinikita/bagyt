@@ -1,192 +1,278 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { motion, useReducedMotion } from 'framer-motion';
+import { Mail, Lock, User, Hash } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { parseApiError } from '../utils/apiError';
+import { validateRegister, mapBackendErrors } from '../utils/registerValidation';
+import Input from '../components/ui/Input';
+import Select from '../components/ui/Select';
+import Button from '../components/ui/Button';
+import ErrorBanner from '../components/ui/ErrorBanner';
+import PasswordInput from '../components/ui/PasswordInput';
+import PasswordStrengthMeter from '../components/ui/PasswordStrengthMeter';
+import Divider from '../components/ui/Divider';
+import SocialButton from '../components/ui/SocialButton';
+import AuthCard from '../components/AuthCard';
+import AuthLogo from '../components/AuthLogo';
+
+const INITIAL_VALUES = {
+  name: '',
+  email: '',
+  sex: '',
+  age: '',
+  password: '',
+  passwordConfirmation: '',
+};
+
+function SectionLabel({ children }) {
+  return (
+    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400">
+      {children}
+    </p>
+  );
+}
 
 export default function Register() {
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    sex: 'male',
-    age: '',
-    password: '',
-    password_confirmation: '',
-  });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
-
   const { register } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const prefersReduced = useReducedMotion();
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    setErrors({ ...errors, [e.target.name]: null });
+  const [values, setValues] = useState(INITIAL_VALUES);
+  const [touched, setTouched] = useState({});
+  const [serverErrors, setServerErrors] = useState({});
+  const [formError, setFormError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const clientErrors = useMemo(() => validateRegister(values, t), [values, t]);
+  const errors = { ...clientErrors, ...serverErrors };
+  const isValid = Object.keys(clientErrors).length === 0;
+
+  const setValue = (key, value) => {
+    setValues((v) => ({ ...v, [key]: value }));
+    if (serverErrors[key]) {
+      setServerErrors((e) => {
+        const next = { ...e };
+        delete next[key];
+        return next;
+      });
+    }
   };
+
+  const handleBlur = (key) => setTouched((tt) => ({ ...tt, [key]: true }));
+  const shouldShow = (key) => Boolean((touched[key] || submitted) && errors[key]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErrors({});
+    setSubmitted(true);
+    setFormError('');
+    if (!isValid) return;
 
-    if (form.password !== form.password_confirmation) {
-      setErrors({ password_confirmation: ['Passwords do not match'] });
-      return;
-    }
-
-    setLoading(true);
+    setSubmitting(true);
     try {
-      await register(form.name, form.email, form.sex, parseInt(form.age), form.password, form.password_confirmation);
-      navigate('/admin/dashboard');
+      const parsedAge = Number(values.age);
+      await register(
+        values.name.trim(),
+        values.email.trim(),
+        values.sex,
+        parsedAge,
+        values.password,
+        values.passwordConfirmation,
+      );
+      navigate('/admin/dashboard', { replace: true });
     } catch (err) {
-      if (err.response?.data?.errors) {
-        setErrors(err.response.data.errors);
+      const mapped = mapBackendErrors(err);
+      if (Object.keys(mapped).length > 0) {
+        setServerErrors(mapped);
+        setFormError(t('register.fixErrors'));
       } else {
-        setErrors({ general: err.response?.data?.message || 'Registration failed' });
+        setFormError(parseApiError(err, t('register.failed')));
       }
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const EyeIcon = ({ show }) => show ? (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 4.411m0 0L21 21" />
-    </svg>
-  ) : (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-    </svg>
-  );
+  const container = prefersReduced
+    ? {}
+    : {
+        hidden: {},
+        show: { transition: { staggerChildren: 0.04, delayChildren: 0.08 } },
+      };
+  const item = prefersReduced
+    ? {}
+    : {
+        hidden: { opacity: 0, y: 8 },
+        show: { opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' } },
+      };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 py-8">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Create Account</h2>
-
-        {errors.general && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 text-sm">
-            {errors.general}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name */}
-          <div>
-            <label className="block text-gray-700 text-sm font-medium mb-1">Full Name</label>
-            <input
-              type="text"
-              name="name"
-              value={form.name}
-              onChange={handleChange}
-              placeholder="John Doe"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.name ? 'border-red-400' : 'border-gray-300'}`}
-              required
-            />
-            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name[0]}</p>}
-          </div>
-
-          {/* Email */}
-          <div>
-            <label className="block text-gray-700 text-sm font-medium mb-1">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              placeholder="john@example.com"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.email ? 'border-red-400' : 'border-gray-300'}`}
-              required
-            />
-            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email[0]}</p>}
-          </div>
-
-          {/* Sex + Age side by side */}
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="block text-gray-700 text-sm font-medium mb-1">Gender</label>
-              <select
-                name="sex"
-                value={form.sex}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-              </select>
-            </div>
-
-            <div className="flex-1">
-              <label className="block text-gray-700 text-sm font-medium mb-1">Age</label>
-              <input
-                type="number"
-                name="age"
-                value={form.age}
-                onChange={handleChange}
-                placeholder="25"
-                min="1"
-                max="120"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.age ? 'border-red-400' : 'border-gray-300'}`}
-                required
-              />
-              {errors.age && <p className="text-red-500 text-xs mt-1">{errors.age[0]}</p>}
-            </div>
-          </div>
-
-          {/* Password */}
-          <div>
-            <label className="block text-gray-700 text-sm font-medium mb-1">Password</label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                name="password"
-                value={form.password}
-                onChange={handleChange}
-                placeholder="Min. 6 characters"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12 ${errors.password ? 'border-red-400' : 'border-gray-300'}`}
-                required
-              />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700">
-                <EyeIcon show={showPassword} />
-              </button>
-            </div>
-            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password[0]}</p>}
-          </div>
-
-          {/* Confirm Password */}
-          <div>
-            <label className="block text-gray-700 text-sm font-medium mb-1">Confirm Password</label>
-            <div className="relative">
-              <input
-                type={showConfirm ? 'text' : 'password'}
-                name="password_confirmation"
-                value={form.password_confirmation}
-                onChange={handleChange}
-                placeholder="Repeat your password"
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12 ${errors.password_confirmation ? 'border-red-400' : 'border-gray-300'}`}
-                required
-              />
-              <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700">
-                <EyeIcon show={showConfirm} />
-              </button>
-            </div>
-            {errors.password_confirmation && <p className="text-red-500 text-xs mt-1">{errors.password_confirmation[0]}</p>}
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors font-medium"
+    <AuthCard
+      logo={<AuthLogo />}
+      title={t('register.title')}
+      subtitle={t('register.subtitle')}
+      footer={
+        <>
+          {t('register.footerPrompt')}{' '}
+          <Link
+            to="/login"
+            className="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
           >
-            {loading ? 'Creating account...' : 'Create Account'}
-          </button>
-        </form>
+            {t('register.footerLink')}
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} noValidate>
+        <motion.div
+          variants={container}
+          initial={prefersReduced ? false : 'hidden'}
+          animate={prefersReduced ? false : 'show'}
+          className="space-y-5"
+        >
+          {formError && (
+            <motion.div
+              variants={item}
+              key={formError}
+              animate={prefersReduced ? undefined : { x: [0, -6, 6, -4, 4, 0] }}
+              transition={{ duration: 0.4 }}
+            >
+              <ErrorBanner message={formError} />
+            </motion.div>
+          )}
 
-        <p className="mt-4 text-center text-gray-600 text-sm">
-          Already have an account?{' '}
-          <Link to="/login" className="text-blue-500 hover:text-blue-700 font-medium">Login</Link>
-        </p>
-      </div>
-    </div>
+          <motion.div variants={item} className="grid grid-cols-2 gap-3">
+            <SocialButton provider="google" />
+            <SocialButton provider="github" />
+          </motion.div>
+
+          <motion.div variants={item}>
+            <Divider>{t('auth.orSignupEmail')}</Divider>
+          </motion.div>
+
+          <motion.section variants={item} className="space-y-3">
+            <SectionLabel>{t('register.sectionAccount')}</SectionLabel>
+            <Input
+              label={t('register.nameLabel')}
+              name="name"
+              type="text"
+              autoComplete="name"
+              leading={<User className="h-4 w-4" aria-hidden="true" />}
+              value={values.name}
+              onChange={(e) => setValue('name', e.target.value)}
+              onBlur={() => handleBlur('name')}
+              error={shouldShow('name') ? errors.name : undefined}
+              placeholder={t('register.namePlaceholder')}
+              required
+            />
+            <Input
+              label={t('register.emailLabel')}
+              name="email"
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+              leading={<Mail className="h-4 w-4" aria-hidden="true" />}
+              value={values.email}
+              onChange={(e) => setValue('email', e.target.value)}
+              onBlur={() => handleBlur('email')}
+              error={shouldShow('email') ? errors.email : undefined}
+              placeholder={t('register.emailPlaceholder')}
+              required
+            />
+          </motion.section>
+
+          <motion.section variants={item} className="space-y-3">
+            <SectionLabel>{t('register.sectionProfile')}</SectionLabel>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Select
+                label={t('register.genderLabel')}
+                name="sex"
+                value={values.sex}
+                onChange={(e) => setValue('sex', e.target.value)}
+                onBlur={() => handleBlur('sex')}
+                error={shouldShow('sex') ? errors.sex : undefined}
+                required
+              >
+                <option value="" disabled>
+                  {t('register.genderSelect')}
+                </option>
+                <option value="male">{t('register.genderMale')}</option>
+                <option value="female">{t('register.genderFemale')}</option>
+                <option value="other">{t('register.genderOther')}</option>
+              </Select>
+              <Input
+                label={t('register.ageLabel')}
+                name="age"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={120}
+                leading={<Hash className="h-4 w-4" aria-hidden="true" />}
+                value={values.age}
+                onChange={(e) => setValue('age', e.target.value)}
+                onBlur={() => handleBlur('age')}
+                error={shouldShow('age') ? errors.age : undefined}
+                placeholder={t('register.agePlaceholder')}
+                required
+              />
+            </div>
+          </motion.section>
+
+          <motion.section variants={item} className="space-y-3">
+            <SectionLabel>{t('register.sectionSecurity')}</SectionLabel>
+            <div>
+              <PasswordInput
+                label={t('register.passwordLabel')}
+                name="password"
+                autoComplete="new-password"
+                minLength={6}
+                leading={<Lock className="h-4 w-4" aria-hidden="true" />}
+                value={values.password}
+                onChange={(e) => setValue('password', e.target.value)}
+                onBlur={() => handleBlur('password')}
+                error={shouldShow('password') ? errors.password : undefined}
+                placeholder={t('register.passwordPlaceholder')}
+                required
+              />
+              {values.password && (
+                <PasswordStrengthMeter
+                  password={values.password}
+                  id="password-strength-label"
+                />
+              )}
+            </div>
+            <PasswordInput
+              label={t('register.confirmLabel')}
+              name="passwordConfirmation"
+              autoComplete="new-password"
+              minLength={6}
+              leading={<Lock className="h-4 w-4" aria-hidden="true" />}
+              value={values.passwordConfirmation}
+              onChange={(e) => setValue('passwordConfirmation', e.target.value)}
+              onBlur={() => handleBlur('passwordConfirmation')}
+              error={
+                shouldShow('passwordConfirmation') ? errors.passwordConfirmation : undefined
+              }
+              placeholder={t('register.confirmPlaceholder')}
+              required
+            />
+          </motion.section>
+
+          <motion.div variants={item}>
+            <Button
+              type="submit"
+              loading={submitting}
+              disabled={submitted && !isValid}
+              className="w-full"
+            >
+              {submitting ? t('register.submitLoading') : t('register.submit')}
+            </Button>
+          </motion.div>
+        </motion.div>
+      </form>
+    </AuthCard>
   );
 }
