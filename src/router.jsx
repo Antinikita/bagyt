@@ -1,22 +1,28 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
-import { useAuth } from "./context/AuthContext";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Dashboard from "./pages/Dashboard";
-import ComplaintEdit from "./pages/ComplaintEdit";
-import AdminLayout from "./layouts/AdminLayout";
-import GuestLayout from "./components/GuestLayout";
+import { createBrowserRouter, Navigate, useParams } from 'react-router-dom';
+import { useAuth } from './context/AuthContext';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+import ComplaintEdit from './pages/ComplaintEdit';
+import AdminLayout from './layouts/AdminLayout';
+import GuestLayout from './components/GuestLayout';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return <div>Loading...</div>;
-  return user ? children : <Navigate to="/login" replace />; // fix: was /admin/dashboard
+  if (loading) return <div>Loading…</div>;
+  return user ? children : <Navigate to="/login" replace />;
 }
 
 function GuestRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div>Loading…</div>;
   return !user ? children : <Navigate to="/admin/dashboard" replace />;
+}
+
+// Keyed wrapper — remounts ComplaintEdit on id change so state resets cleanly.
+function ComplaintEditRoute() {
+  const { complaintId } = useParams();
+  return <ComplaintEdit key={complaintId} />;
 }
 
 const router = createBrowserRouter([
@@ -28,10 +34,18 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
-      { index: true, element: <Navigate to="/admin/dashboard" replace /> },
-      { path: "dashboard", element: <Dashboard /> },
-      { path: "complaints/new", element: <ComplaintEdit complaintId="new" /> },
-      { path: "complaints/:complaintId", element: <ComplaintEdit /> },
+      {
+        index: true,
+        element: <Navigate to="/admin/dashboard" replace />,
+      },
+      {
+        path: "dashboard",
+        element: <Dashboard />,
+      },
+      {
+        path: 'complaints/:complaintId',
+        element: <ComplaintEditRoute />,
+      },
     ],
   },
   {
@@ -42,9 +56,9 @@ const router = createBrowserRouter([
       </GuestRoute>
     ),
     children: [
-      { index: true, element: <Navigate to="/login" replace /> }, // add this
       { path: "login", element: <Login /> },
       { path: "register", element: <Register /> },
+      { path: "*", element: <Navigate to="/login" replace /> },
     ],
   },
   { path: "*", element: <Navigate to="/login" replace /> },

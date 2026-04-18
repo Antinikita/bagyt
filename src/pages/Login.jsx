@@ -1,104 +1,197 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { motion, useReducedMotion } from 'framer-motion';
+import { Mail, Lock } from 'lucide-react';
+import { parseApiError } from '../utils/apiError';
+import Input from '../components/ui/Input';
+import Button from '../components/ui/Button';
+import ErrorBanner from '../components/ui/ErrorBanner';
+import PasswordInput from '../components/ui/PasswordInput';
+import Checkbox from '../components/ui/Checkbox';
+import Divider from '../components/ui/Divider';
+import SocialButton from '../components/ui/SocialButton';
+import AuthCard from '../components/AuthCard';
+import AuthLogo from '../components/AuthLogo';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const REMEMBERED_KEY = 'auth:rememberedEmail';
+
+function validateLogin(values, t) {
+  const errors = {};
+  if (!values.email) errors.email = t('validation.emailRequired');
+  else if (!EMAIL_RE.test(values.email)) errors.email = t('validation.emailInvalid');
+  if (!values.password) errors.password = t('validation.passwordRequired');
+  return errors;
+}
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // add this
-  const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const prefersReduced = useReducedMotion();
+
+  const initialRemembered =
+    typeof window !== 'undefined' ? window.localStorage.getItem(REMEMBERED_KEY) ?? '' : '';
+
+  const [values, setValues] = useState({
+    email: initialRemembered,
+    password: '',
+  });
+  const [rememberMe, setRememberMe] = useState(Boolean(initialRemembered));
+  const [touched, setTouched] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const errors = useMemo(() => validateLogin(values, t), [values, t]);
+  const isValid = Object.keys(errors).length === 0;
+
+  const setValue = (key, value) => setValues((v) => ({ ...v, [key]: value }));
+  const handleBlur = (key) => setTouched((tt) => ({ ...tt, [key]: true }));
+  const shouldShow = (key) => Boolean((touched[key] || submitted) && errors[key]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErrors({});
+    setSubmitted(true);
+    setFormError('');
+    if (!isValid) return;
+
     setLoading(true);
     try {
-      await login(email, password);
-      navigate('/admin/dashboard');
-    } catch (err) {
-      if (err.response?.data?.errors) {
-        setErrors(err.response.data.errors);
+      await login(values.email, values.password);
+      if (rememberMe) {
+        window.localStorage.setItem(REMEMBERED_KEY, values.email);
       } else {
-        setErrors({ general: err.response?.data?.message || 'Invalid credentials' });
+        window.localStorage.removeItem(REMEMBERED_KEY);
       }
+      navigate('/admin/dashboard', { replace: true });
+    } catch (err) {
+      setFormError(parseApiError(err, t('login.invalidCredentials')));
     } finally {
       setLoading(false);
     }
   };
 
+  const container = prefersReduced
+    ? {}
+    : {
+        hidden: {},
+        show: { transition: { staggerChildren: 0.05, delayChildren: 0.08 } },
+      };
+  const item = prefersReduced
+    ? {}
+    : {
+        hidden: { opacity: 0, y: 8 },
+        show: { opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' } },
+      };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Login</h2>
+    <AuthCard
+      logo={<AuthLogo />}
+      title={t('login.title')}
+      subtitle={t('login.subtitle')}
+      footer={
+        <>
+          {t('login.footerPrompt')}{' '}
+          <Link
+            to="/register"
+            className="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+          >
+            {t('login.footerLink')}
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} noValidate>
+        <motion.div
+          variants={container}
+          initial={prefersReduced ? false : 'hidden'}
+          animate={prefersReduced ? false : 'show'}
+          className="space-y-4"
+        >
+          {formError && (
+            <motion.div
+              variants={item}
+              key={formError}
+              animate={prefersReduced ? undefined : { x: [0, -6, 6, -4, 4, 0] }}
+              transition={{ duration: 0.4 }}
+            >
+              <ErrorBanner message={formError} />
+            </motion.div>
+          )}
 
-        {errors.general && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-            {errors.general}
-          </div>
-        )}
+          <motion.div variants={item} className="grid grid-cols-2 gap-3">
+            <SocialButton provider="google" />
+            <SocialButton provider="github" />
+          </motion.div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-gray-700 mb-2">Email</label>
-            <input
+          <motion.div variants={item}>
+            <Divider>{t('auth.orContinueEmail')}</Divider>
+          </motion.div>
+
+          <motion.div variants={item}>
+            <Input
+              label={t('login.emailLabel')}
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                ${errors.email ? 'border-red-400' : 'border-gray-300'}`}
+              name="email"
+              autoComplete="email"
+              inputMode="email"
+              leading={<Mail className="h-4 w-4" aria-hidden="true" />}
+              value={values.email}
+              onChange={(e) => setValue('email', e.target.value)}
+              onBlur={() => handleBlur('email')}
+              error={shouldShow('email') ? errors.email : undefined}
+              placeholder={t('login.emailPlaceholder')}
               required
             />
-            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email[0]}</p>}
-          </div>
+          </motion.div>
 
-          <div>
-            <label className="block text-gray-700 mb-2">Password</label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12
-                  ${errors.password ? 'border-red-400' : 'border-gray-300'}`}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-              >
-                {showPassword ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 4.411m0 0L21 21" />
-                  </svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                )}
-              </button>
-            </div>
-            {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password[0]}</p>}
-          </div>
+          <motion.div variants={item}>
+            <PasswordInput
+              label={t('login.passwordLabel')}
+              name="password"
+              autoComplete="current-password"
+              leading={<Lock className="h-4 w-4" aria-hidden="true" />}
+              value={values.password}
+              onChange={(e) => setValue('password', e.target.value)}
+              onBlur={() => handleBlur('password')}
+              error={shouldShow('password') ? errors.password : undefined}
+              placeholder={t('login.passwordPlaceholder')}
+              required
+            />
+          </motion.div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+          <motion.div
+            variants={item}
+            className="flex items-center justify-between pt-1"
           >
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-        </form>
+            <Checkbox
+              label={t('login.rememberMe')}
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+            />
+            <Link
+              to="/forgot-password"
+              className="text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+            >
+              {t('login.forgotPassword')}
+            </Link>
+          </motion.div>
 
-        <p className="mt-4 text-center text-gray-600">
-          Don't have an account?{' '}
-          <Link to="/register" className="text-blue-500 hover:text-blue-700">Register</Link>
-        </p>
-      </div>
-    </div>
+          <motion.div variants={item}>
+            <Button
+              type="submit"
+              loading={loading}
+              disabled={submitted && !isValid}
+              className="w-full"
+            >
+              {loading ? t('login.submitLoading') : t('login.submit')}
+            </Button>
+          </motion.div>
+        </motion.div>
+      </form>
+    </AuthCard>
   );
 }

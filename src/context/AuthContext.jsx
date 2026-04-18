@@ -1,10 +1,11 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import axiosClient from "../api/axios-client";
+import { createContext, useContext, useState, useEffect } from 'react';
+import { sanctumRequest } from '../config/sanctumRequest';
+import { registerAuthErrorHandler } from '../api/axios-client';
 
 const AuthContext = createContext({
   user: null,
-  login: async () => {},
-  register: async () => {},
+  login: async (_email, _password) => {},
+  register: async (_name, _email, _sex, _age, _password, _passwordConfirmation) => {},
   logout: async () => {},
   loading: true,
 });
@@ -14,41 +15,36 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    axiosClient.get('/user')
+    registerAuthErrorHandler(() => setUser(null));
+    sanctumRequest('get', '/user')
       .then(({ data }) => setUser(data))
-      .catch(() => {
-        localStorage.removeItem('token');
-        setUser(null);
-      })
+      .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
 
   const login = async (email, password) => {
-    const { data } = await axiosClient.post('/login', { email, password });
-    localStorage.setItem('token', data.token);
+    const { data } = await sanctumRequest('post', '/login', { email, password });
     setUser(data.user);
+    return data.user;
   };
 
   const register = async (name, email, sex, age, password, password_confirmation) => {
-    const { data } = await axiosClient.post('/register', {
-      name, email, sex, age, password, password_confirmation
+    const { data } = await sanctumRequest('post', '/register', {
+      name,
+      email,
+      sex,
+      age,
+      password,
+      password_confirmation,
     });
-    localStorage.setItem('token', data.token);
     setUser(data.user);
+    return data.user;
   };
 
   const logout = async () => {
     try {
-      await axiosClient.post('/logout');
-    } catch (e) {
-      // silent fail
+      await sanctumRequest('post', '/logout');
     } finally {
-      localStorage.removeItem('token');
       setUser(null);
     }
   };
