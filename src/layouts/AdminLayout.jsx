@@ -1,30 +1,29 @@
 import { Outlet } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
-import ComplaintsList from '../components/ComplaintsList';
+import SidebarNav from '../components/SidebarNav';
 
 export default function AdminLayout() {
   const { user, logout } = useAuth();
+  const { t } = useTranslation();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+    <div className="min-h-screen bg-gray-50 dark:bg-deep-900">
       <Header user={user} logout={logout} />
-      
+
       <div className="flex">
-        {/* Sidebar - Always shows complaints */}
-        <div className="w-80 bg-white border-r border-gray-200 shadow-sm">
-          <div className="p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Complaints</h2>
-            <ComplaintsList />
-          </div>
-        </div>
-        
-        {/* Main Content */}
-        <div className="flex-1">
+        <aside
+          aria-label={t('nav.navigation')}
+          className="hidden md:flex w-72 lg:w-80 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-deep-700 dark:bg-deep-800"
+          style={{ height: 'calc(100vh - 4rem)', position: 'sticky', top: '4rem' }}
+        >
+          <SidebarNav />
+        </aside>
+
+        <main className="flex-1 min-w-0">
           <Outlet />
-        </div>
+        </main>
       </div>
     </div>
   );
