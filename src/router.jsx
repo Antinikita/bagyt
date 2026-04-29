@@ -9,6 +9,7 @@ import ChatDetail from './pages/ChatDetail';
 import Anamneses from './pages/Anamneses';
 import AnamnesisDetail from './pages/AnamnesisDetail';
 import Profile from './pages/Profile';
+import Health from './pages/Health';
 import AdminLayout from './layouts/AdminLayout';
 import GuestLayout from './components/GuestLayout';
 
@@ -52,6 +53,7 @@ const router = createBrowserRouter([
       { path: 'chats/:chatId', element: <ChatDetail /> },
       { path: 'anamneses', element: <Anamneses /> },
       { path: 'anamneses/:anamnesisId', element: <AnamnesisDetail /> },
+      { path: 'health', element: <Health /> },
     ],
   },
   {

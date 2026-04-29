@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { listChats } from '../api/chats';
 import { listAnamneses } from '../api/anamneses';
 import { getDateLocale } from '../lib/locale';
+import HealthSummaryCard from '../components/HealthSummaryCard';
 
 function Stat({ icon: Icon, label, value, hint, tint }) {
   return (
@@ -116,6 +117,10 @@ export default function Dashboard() {
             : t('dashboard.nothingYet')}
           tint="bg-emerald-50 text-emerald-700 dark:bg-deep-700 dark:text-emerald-300"
         />
+      </section>
+
+      <section>
+        <HealthSummaryCard />
       </section>
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">

@@ -10,6 +10,7 @@ import {
 } from '../api/chats';
 import { streamChatMessage } from '../api/sseStream';
 import { generateFromChat } from '../api/anamneses';
+import { extractApiError } from '../api/axios-client';
 import Button from '../components/ui/Button';
 
 export default function ChatDetail() {
@@ -81,6 +82,7 @@ export default function ChatDetail() {
 
     let userMessageId = null;
     let assistantMessageId = null;
+    let assistantStatus = 'complete';
     let finalText = '';
 
     try {
@@ -90,19 +92,31 @@ export default function ChatDetail() {
         locale,
         signal: controller.signal,
         onEvent: ({ event, data }) => {
-          if (event === 'meta' && data?.user_message_id) {
-            userMessageId = data.user_message_id;
-            setMessages((prev) => prev.map((m) =>
-              m.id === optimisticUser.id ? { ...m, id: userMessageId, _pending: false } : m,
-            ));
+          if (event === 'meta') {
+            if (data?.user_message_id) {
+              userMessageId = data.user_message_id;
+              setMessages((prev) => prev.map((m) =>
+                m.id === optimisticUser.id ? { ...m, id: userMessageId, _pending: false } : m,
+              ));
+            }
+            // Backend now also sends assistant_message_id in meta so
+            // the placeholder can be created with its real id from the start.
+            if (data?.assistant_message_id) {
+              assistantMessageId = data.assistant_message_id;
+            }
           } else if (event === 'delta' && data?.text) {
             finalText += data.text;
             setStreamingText(finalText);
           } else if (event === 'final' && data?.answer) {
             finalText = data.answer;
             setStreamingText(finalText);
-          } else if (event === 'saved' && data?.assistant_message_id) {
-            assistantMessageId = data.assistant_message_id;
+          } else if (event === 'saved') {
+            if (data?.assistant_message_id) {
+              assistantMessageId = data.assistant_message_id;
+            }
+            if (data?.status) {
+              assistantStatus = data.status;
+            }
           } else if (event === 'error') {
             throw new Error(data?.message || 'Stream error');
           }
@@ -115,10 +129,15 @@ export default function ChatDetail() {
           id: assistantMessageId ?? `temp-assistant-${Date.now()}`,
           role: 'assistant',
           message: finalText,
+          status: assistantStatus,
           created_at: new Date().toISOString(),
         },
       ]);
       setStreamingText('');
+
+      if (assistantStatus === 'partial') {
+        setError(t('chats.streamPartial'));
+      }
     } catch (err) {
       setError(err.message || t('chats.streamFailed'));
       setStreamingText('');
@@ -143,7 +162,7 @@ export default function ChatDetail() {
       });
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== optimisticUser.id));
-      setError(err.response?.data?.message || t('chats.sendFailed'));
+      setError(extractApiError(err, 'chats.sendFailed'));
     }
   };
 
@@ -175,7 +194,7 @@ export default function ChatDetail() {
       const { assistant_message } = await regenerateMessage(chatId, locale);
       if (assistant_message) setMessages((prev) => [...prev, assistant_message]);
     } catch (err) {
-      setError(err.response?.data?.message || t('chats.regenerateFailed'));
+      setError(extractApiError(err, 'chats.regenerateFailed'));
       await loadChat();
     } finally {
       setRegenLoading(false);
@@ -208,7 +227,7 @@ export default function ChatDetail() {
         return [...truncated, data.user_message, data.assistant_message].filter(Boolean);
       });
     } catch (err) {
-      setError(err.response?.data?.message || t('chats.editFailed'));
+      setError(extractApiError(err, 'chats.editFailed'));
       await loadChat();
     }
   };
@@ -219,7 +238,7 @@ export default function ChatDetail() {
       await deleteMessage(chatId, id);
       setMessages((prev) => prev.filter((m) => m.id !== id));
     } catch (err) {
-      setError(err.response?.data?.message || t('chats.deleteFailed'));
+      setError(extractApiError(err, 'chats.deleteFailed'));
     }
   };
 
@@ -230,7 +249,7 @@ export default function ChatDetail() {
       const anamnesis = await generateFromChat(chatId, locale);
       navigate(`/admin/anamneses/${anamnesis.id}`);
     } catch (err) {
-      setError(err.response?.data?.message || t('anamneses.generateFailed'));
+      setError(extractApiError(err, 'anamneses.generateFailed'));
     } finally {
       setGeneratingAnamnesis(false);
     }
@@ -443,6 +462,14 @@ function MessageBubble({ message, editing, editText, onEditTextChange, onStartEd
             } ${isPending ? 'opacity-70' : ''}`}>
               {message.message}
             </div>
+            {!isUser && message.status === 'partial' && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                title={t('chats.streamPartialTooltip')}
+              >
+                {t('chats.streamPartialBadge')}
+              </span>
+            )}
             <div className={`flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 ${isUser ? 'flex-row-reverse' : ''}`}>
               {isUser && !isPending && (
                 <button

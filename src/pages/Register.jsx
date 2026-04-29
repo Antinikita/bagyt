@@ -14,6 +14,7 @@ import SocialButton from '../components/ui/SocialButton';
 import Select from '../components/ui/Select';
 import Checkbox from '../components/ui/Checkbox';
 import { useAuth } from '../context/AuthContext';
+import { extractApiError } from '../api/axios-client';
 
 const initial = {
   name: '',
@@ -66,11 +67,7 @@ export default function Register() {
       );
       navigate('/admin/dashboard');
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          err.message ||
-          t('auth.registrationFailed'),
-      );
+      setError(extractApiError(err, 'auth.registrationFailed'));
     } finally {
       setLoading(false);
     }

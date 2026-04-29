@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, NavLink, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Home, MessageSquare, FileText, Plus, Trash2, User as UserIcon } from 'lucide-react';
+import { Home, MessageSquare, FileText, Plus, Trash2, User as UserIcon, Activity } from 'lucide-react';
 import { listChats, createChat, deleteChat } from '../api/chats';
 import { useNavigate } from 'react-router-dom';
 
@@ -52,6 +52,7 @@ export default function SidebarNav() {
     { to: '/admin/dashboard', icon: Home, label: t('nav.dashboard'), end: true },
     { to: '/admin/chats', icon: MessageSquare, label: t('nav.chats'), end: true },
     { to: '/admin/anamneses', icon: FileText, label: t('nav.anamneses') },
+    { to: '/admin/health', icon: Activity, label: t('nav.health') },
     { to: '/admin/profile', icon: UserIcon, label: t('nav.profile') },
   ];
 
