@@ -34,6 +34,12 @@ const en = {
     somethingWentWrong: 'Something went wrong',
     rateLimited: 'Too many requests — slow down for a moment',
   },
+  errors: {
+    somethingBroke: 'Something broke',
+    routeFailed: 'This page failed to load.',
+    unknown: 'An unknown error occurred.',
+    goHome: 'Back to dashboard',
+  },
   language: { label: 'Language' },
   theme: {
     light: 'Light theme',
@@ -295,6 +301,12 @@ const ru = {
     somethingWentWrong: 'Что-то пошло не так',
     rateLimited: 'Слишком много запросов — подождите немного',
   },
+  errors: {
+    somethingBroke: 'Что-то сломалось',
+    routeFailed: 'Не удалось загрузить страницу.',
+    unknown: 'Произошла неизвестная ошибка.',
+    goHome: 'На главную',
+  },
   language: { label: 'Язык' },
   theme: {
     light: 'Светлая тема',
@@ -555,6 +567,12 @@ const kk = {
     viewAll: 'Барлығын көру',
     somethingWentWrong: 'Бірдеңе дұрыс болмады',
     rateLimited: 'Сұраныстар тым көп — біраз күтіңіз',
+  },
+  errors: {
+    somethingBroke: 'Бірдеңе бұзылды',
+    routeFailed: 'Бетті жүктеу мүмкін болмады.',
+    unknown: 'Белгісіз қате болды.',
+    goHome: 'Басты бетке',
   },
   language: { label: 'Тіл' },
   theme: {

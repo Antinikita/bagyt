@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Activity, Heart, Moon, Footprints } from 'lucide-react';
-import { getHealthSummary } from '../api/health';
+import { useHealthSummary } from '../api/hooks/useHealth';
 
 function StatTile({ icon: Icon, label, value, unit, tint }) {
   return (
@@ -36,18 +35,7 @@ function formatSleep(minutes) {
 
 export default function HealthSummaryCard() {
   const { t } = useTranslation();
-  const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [errored, setErrored] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    getHealthSummary()
-      .then((data) => { if (!cancelled) setSummary(data); })
-      .catch(() => { if (!cancelled) setErrored(true); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
+  const { data: summary, isLoading: loading, isError: errored } = useHealthSummary();
 
   const isEmpty = !loading && !errored
     && summary

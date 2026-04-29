@@ -1,29 +1,23 @@
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import { useAuth } from './context/AuthContext';
+import LoadingScreen from './components/LoadingScreen';
+import RouterErrorBoundary from './components/RouterErrorBoundary';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import Chats from './pages/Chats';
-import ChatDetail from './pages/ChatDetail';
-import Anamneses from './pages/Anamneses';
-import AnamnesisDetail from './pages/AnamnesisDetail';
-import Profile from './pages/Profile';
-import Health from './pages/Health';
 import AdminLayout from './layouts/AdminLayout';
 import GuestLayout from './components/GuestLayout';
 
-function LoadingScreen() {
-  const { t } = useTranslation();
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-deep-900">
-      <div className="flex flex-col items-center gap-4">
-        <div className="h-8 w-8 rounded-full border-4 border-gray-200 border-t-brand-500 animate-spin dark:border-gray-700 dark:border-t-brand-400" />
-        <p className="text-sm text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
-      </div>
-    </div>
-  );
-}
+// Lazy-load every protected route. Login + Register stay eager because
+// they're the auth-critical first-paint surface; everything else dropouts
+// the unused page chunks until the user navigates there.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Chats = lazy(() => import('./pages/Chats'));
+const ChatDetail = lazy(() => import('./pages/ChatDetail'));
+const Anamneses = lazy(() => import('./pages/Anamneses'));
+const AnamnesisDetail = lazy(() => import('./pages/AnamnesisDetail'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Health = lazy(() => import('./pages/Health'));
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -37,6 +31,10 @@ function GuestRoute({ children }) {
   return !user ? children : <Navigate to="/admin/dashboard" replace />;
 }
 
+function suspended(node) {
+  return <Suspense fallback={<LoadingScreen />}>{node}</Suspense>;
+}
+
 const router = createBrowserRouter([
   {
     path: '/admin',
@@ -45,15 +43,16 @@ const router = createBrowserRouter([
         <AdminLayout />
       </ProtectedRoute>
     ),
+    errorElement: <RouterErrorBoundary />,
     children: [
       { index: true, element: <Navigate to="/admin/dashboard" replace /> },
-      { path: 'dashboard', element: <Dashboard /> },
-      { path: 'profile', element: <Profile /> },
-      { path: 'chats', element: <Chats /> },
-      { path: 'chats/:chatId', element: <ChatDetail /> },
-      { path: 'anamneses', element: <Anamneses /> },
-      { path: 'anamneses/:anamnesisId', element: <AnamnesisDetail /> },
-      { path: 'health', element: <Health /> },
+      { path: 'dashboard', element: suspended(<Dashboard />) },
+      { path: 'profile', element: suspended(<Profile />) },
+      { path: 'chats', element: suspended(<Chats />) },
+      { path: 'chats/:chatId', element: suspended(<ChatDetail />) },
+      { path: 'anamneses', element: suspended(<Anamneses />) },
+      { path: 'anamneses/:anamnesisId', element: suspended(<AnamnesisDetail />) },
+      { path: 'health', element: suspended(<Health />) },
     ],
   },
   {
@@ -63,6 +62,7 @@ const router = createBrowserRouter([
         <GuestLayout />
       </GuestRoute>
     ),
+    errorElement: <RouterErrorBoundary />,
     children: [
       { index: true, element: <Navigate to="/login" replace /> },
       { path: 'login', element: <Login /> },

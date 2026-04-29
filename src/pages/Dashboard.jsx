@@ -1,12 +1,11 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Plus, Sparkles, MessageSquare, FileText, Clock, TrendingUp, ArrowUpRight,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { listChats } from '../api/chats';
-import { listAnamneses } from '../api/anamneses';
+import { useChatsList } from '../api/hooks/useChats';
+import { useAnamnesesList } from '../api/hooks/useAnamneses';
 import { getDateLocale } from '../lib/locale';
 import HealthSummaryCard from '../components/HealthSummaryCard';
 
@@ -34,29 +33,13 @@ export default function Dashboard() {
   const { t, i18n } = useTranslation();
   const locale = getDateLocale(i18n.resolvedLanguage);
 
-  const [chats, setChats] = useState([]);
-  const [chatsTotal, setChatsTotal] = useState(0);
-  const [anamnesesTotal, setAnamnesesTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const chatsQuery = useChatsList({ page: 1, perPage: 5 });
+  const anamnesesQuery = useAnamnesesList({ page: 1, perPage: 1 });
 
-  useEffect(() => {
-    let cancelled = false;
-    Promise.allSettled([
-      listChats({ page: 1, perPage: 5 }),
-      listAnamneses({ page: 1, perPage: 1 }),
-    ]).then(([chatsRes, anamnesesRes]) => {
-      if (cancelled) return;
-      if (chatsRes.status === 'fulfilled') {
-        setChats(chatsRes.value.data ?? []);
-        setChatsTotal(chatsRes.value.total ?? 0);
-      }
-      if (anamnesesRes.status === 'fulfilled') {
-        setAnamnesesTotal(anamnesesRes.value.total ?? 0);
-      }
-      setLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, []);
+  const loading = chatsQuery.isLoading || anamnesesQuery.isLoading;
+  const chats = chatsQuery.data?.data ?? [];
+  const chatsTotal = chatsQuery.data?.total ?? 0;
+  const anamnesesTotal = anamnesesQuery.data?.total ?? 0;
 
   const lastDate = chats[0]?.updated_at || chats[0]?.created_at;
 

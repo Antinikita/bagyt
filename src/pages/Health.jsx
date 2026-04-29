@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Activity, Plus, Loader2 } from 'lucide-react';
-import { listHealthMetrics, postHealthMetrics } from '../api/health';
+import { useHealthMetrics, usePostHealthMetrics } from '../api/hooks/useHealth';
 import { extractApiError } from '../api/axios-client';
 import { getDateLocale } from '../lib/locale';
 
@@ -21,31 +21,24 @@ export default function Health() {
   const { t, i18n } = useTranslation();
   const dateLocale = getDateLocale(i18n.resolvedLanguage);
 
-  const [metrics, setMetrics] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState('');
-
   const [type, setType] = useState('steps');
   const [value, setValue] = useState('');
   const [recordedAt, setRecordedAt] = useState(nowLocalISOString());
 
   const selectedType = TYPE_OPTIONS.find((o) => o.value === type) ?? TYPE_OPTIONS[0];
 
-  const refresh = async () => {
-    setLoading(true);
-    try {
-      const data = await listHealthMetrics({ limit: 50 });
-      setMetrics(data.metrics ?? []);
-    } catch (err) {
-      setError(extractApiError(err, 'health.loadFailed'));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const metricsQuery = useHealthMetrics({ limit: 50 });
+  const postMutation = usePostHealthMetrics();
 
-  useEffect(() => { refresh(); }, []);
+  const metrics = metricsQuery.data?.metrics ?? [];
+  const loading = metricsQuery.isLoading;
+  const submitting = postMutation.isPending;
+  const queryError = metricsQuery.isError
+    ? extractApiError(metricsQuery.error, 'health.loadFailed')
+    : '';
+  const displayError = error || queryError;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -56,9 +49,8 @@ export default function Health() {
       setError(t('health.invalidValue'));
       return;
     }
-    setSubmitting(true);
     try {
-      await postHealthMetrics([{
+      await postMutation.mutateAsync([{
         type,
         value: numeric,
         unit: selectedType.unit,
@@ -67,11 +59,8 @@ export default function Health() {
       }]);
       setSuccess(t('health.submitOk'));
       setValue('');
-      await refresh();
     } catch (err) {
       setError(extractApiError(err, 'health.submitFailed'));
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -94,9 +83,9 @@ export default function Health() {
           {t('health.manualEntry')}
         </h2>
 
-        {error && (
+        {displayError && (
           <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
-            {error}
+            {displayError}
           </div>
         )}
         {success && (

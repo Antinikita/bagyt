@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Trash2, Save, Pencil, X } from 'lucide-react';
-import { getAnamnesis, updateAnamnesis, deleteAnamnesis, ANAMNESIS_FIELDS } from '../api/anamneses';
+import { ANAMNESIS_FIELDS } from '../api/anamneses';
+import { useAnamnesis, useUpdateAnamnesis, useDeleteAnamnesis } from '../api/hooks/useAnamneses';
+import { extractApiError } from '../api/axios-client';
 import Button from '../components/ui/Button';
 
 export default function AnamnesisDetail() {
@@ -10,26 +12,26 @@ export default function AnamnesisDetail() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const [anamnesis, setAnamnesis] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const query = useAnamnesis(anamnesisId);
+  const updateMutation = useUpdateAnamnesis(anamnesisId);
+  const deleteMutation = useDeleteAnamnesis();
+
+  const anamnesis = query.data ?? null;
+  const loading = query.isLoading;
+  const queryError = query.isError
+    ? (query.error?.response?.status === 404
+        ? t('anamneses.notFound')
+        : extractApiError(query.error, 'anamneses.failedLoad'))
+    : '';
+
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    getAnamnesis(anamnesisId)
-      .then((data) => { if (!cancelled) { setAnamnesis(data); setError(''); } })
-      .catch((err) => {
-        if (cancelled) return;
-        setError(err.response?.status === 404 ? t('anamneses.notFound') : (err.response?.data?.message || t('anamneses.failedLoad')));
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [anamnesisId, t]);
+  const saving = updateMutation.isPending;
+  const deleting = deleteMutation.isPending;
+  const displayError = error || queryError;
 
   const startEdit = () => {
     const initial = {};
@@ -39,27 +41,21 @@ export default function AnamnesisDetail() {
   };
 
   const handleSave = async () => {
-    setSaving(true);
     setError('');
     try {
-      const updated = await updateAnamnesis(anamnesisId, draft);
-      setAnamnesis(updated);
+      await updateMutation.mutateAsync(draft);
       setEditing(false);
     } catch (err) {
-      setError(err.response?.data?.message || t('anamneses.failedSave'));
-    } finally {
-      setSaving(false);
+      setError(extractApiError(err, 'anamneses.failedSave'));
     }
   };
 
   const handleDelete = async () => {
-    setDeleting(true);
     try {
-      await deleteAnamnesis(anamnesisId);
+      await deleteMutation.mutateAsync(anamnesisId);
       navigate('/admin/anamneses');
     } catch (err) {
-      setError(err.response?.data?.message || t('anamneses.failedDelete'));
-      setDeleting(false);
+      setError(extractApiError(err, 'anamneses.failedDelete'));
       setConfirmDelete(false);
     }
   };
@@ -75,7 +71,7 @@ export default function AnamnesisDetail() {
   if (!anamnesis) {
     return (
       <div className="mx-auto max-w-2xl p-6 text-center">
-        <p className="text-gray-600 dark:text-gray-300">{error || t('anamneses.notFound')}</p>
+        <p className="text-gray-600 dark:text-gray-300">{displayError || t('anamneses.notFound')}</p>
         <Link to="/admin/anamneses" className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300">
           <ArrowLeft className="h-4 w-4" /> {t('anamneses.backToList')}
         </Link>
@@ -128,9 +124,9 @@ export default function AnamnesisDetail() {
         </div>
       </header>
 
-      {error && (
+      {displayError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
-          {error}
+          {displayError}
         </div>
       )}
 

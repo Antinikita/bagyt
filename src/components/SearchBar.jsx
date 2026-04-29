@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Search, Loader2 } from 'lucide-react';
-import { searchChats } from '../api/search';
+import { useSearchChats } from '../api/hooks/useSearch';
+import useDebouncedValue from '../lib/useDebouncedValue';
 import { extractApiError } from '../api/axios-client';
 
 const MODES = ['hybrid', 'semantic', 'text'];
-const DEBOUNCE_MS = 300;
 
 export default function SearchBar() {
   const { t } = useTranslation();
@@ -14,11 +14,15 @@ export default function SearchBar() {
   const [q, setQ] = useState('');
   const [mode, setMode] = useState('hybrid');
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState([]);
-  const [error, setError] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const wrapperRef = useRef(null);
+
+  const debouncedQ = useDebouncedValue(q, 300);
+  const query = useSearchChats(debouncedQ, mode, 8);
+
+  const results = query.data?.results ?? [];
+  const loading = query.isFetching;
+  const error = query.isError ? extractApiError(query.error, 'search.failed') : '';
 
   // Close popover on outside click.
   useEffect(() => {
@@ -29,33 +33,9 @@ export default function SearchBar() {
     return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
 
-  // Debounced fetch.
-  useEffect(() => {
-    if (!q.trim()) {
-      setResults([]);
-      setError('');
-      return undefined;
-    }
-    const handle = setTimeout(async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const data = await searchChats(q.trim(), mode, 8);
-        setResults(data.results ?? []);
-      } catch (err) {
-        setError(extractApiError(err, 'search.failed'));
-        setResults([]);
-      } finally {
-        setLoading(false);
-      }
-    }, DEBOUNCE_MS);
-    return () => clearTimeout(handle);
-  }, [q, mode]);
-
   const onSelect = (chatId) => {
     setOpen(false);
     setQ('');
-    setResults([]);
     navigate(`/admin/chats/${chatId}`);
   };
 
@@ -85,7 +65,7 @@ export default function SearchBar() {
           {error && (
             <div className="px-3 py-2 text-xs text-red-600 dark:text-red-400">{error}</div>
           )}
-          {!error && !loading && results.length === 0 && q.trim() && (
+          {!error && !loading && results.length === 0 && debouncedQ.trim() && (
             <div className="px-3 py-3 text-xs text-gray-500 dark:text-gray-400">{t('search.empty')}</div>
           )}
           <ul>

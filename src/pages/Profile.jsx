@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -15,8 +15,8 @@ import {
   Clock,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { listChats } from '../api/chats';
-import { listAnamneses } from '../api/anamneses';
+import { useChatsList } from '../api/hooks/useChats';
+import { useAnamnesesList } from '../api/hooks/useAnamneses';
 import { getInitials } from '../lib/initials';
 import { getDateLocale } from '../lib/locale';
 import ThemeToggle from '../components/ui/ThemeToggle';
@@ -92,10 +92,6 @@ export default function Profile() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const locale = getDateLocale(i18n.resolvedLanguage);
-  const [chatsTotal, setChatsTotal] = useState(0);
-  const [anamnesesTotal, setAnamnesesTotal] = useState(0);
-  const [lastChatDate, setLastChatDate] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
 
   const SEX_LABEL = {
@@ -104,29 +100,14 @@ export default function Profile() {
     other: t('profile.other'),
   };
 
-  useEffect(() => {
-    let cancelled = false;
-    Promise.allSettled([
-      listChats({ page: 1, perPage: 1 }),
-      listAnamneses({ page: 1, perPage: 1 }),
-    ]).then(([chatsRes, anamnesesRes]) => {
-      if (cancelled) return;
-      if (chatsRes.status === 'fulfilled') {
-        setChatsTotal(chatsRes.value.total ?? 0);
-        const latest = chatsRes.value.data?.[0];
-        setLastChatDate(latest?.updated_at || latest?.created_at || null);
-      }
-      if (anamnesesRes.status === 'fulfilled') {
-        setAnamnesesTotal(anamnesesRes.value.total ?? 0);
-      }
-      setLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, []);
+  const chatsQuery = useChatsList({ page: 1, perPage: 1 });
+  const anamnesesQuery = useAnamnesesList({ page: 1, perPage: 1 });
 
-  const total = chatsTotal;
-  const analyzed = anamnesesTotal;
-  const lastDate = lastChatDate;
+  const loading = chatsQuery.isLoading || anamnesesQuery.isLoading;
+  const total = chatsQuery.data?.total ?? 0;
+  const analyzed = anamnesesQuery.data?.total ?? 0;
+  const latestChat = chatsQuery.data?.data?.[0];
+  const lastDate = latestChat?.updated_at || latestChat?.created_at || null;
 
   const handleLogout = async () => {
     try {

@@ -1,15 +1,21 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, Send, RefreshCw, Edit2, Trash2, FileText, Bot, User as UserIcon, Check, X,
 } from 'lucide-react';
 import {
-  getChat, sendMessageSync, regenerate as regenerateMessage,
-  editMessage, deleteMessage, renameChat,
-} from '../api/chats';
+  useChat,
+  useSendMessage,
+  useRegenerateMessage,
+  useEditMessage,
+  useDeleteMessage,
+  useRenameChat,
+  chatKeys,
+} from '../api/hooks/useChats';
+import { useGenerateAnamnesis } from '../api/hooks/useAnamneses';
 import { streamChatMessage } from '../api/sseStream';
-import { generateFromChat } from '../api/anamneses';
 import { extractApiError } from '../api/axios-client';
 import Button from '../components/ui/Button';
 
@@ -19,20 +25,27 @@ export default function ChatDetail() {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage || i18n.language || 'en';
 
-  const [chat, setChat] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const chatQuery = useChat(chatId, { page: 1, perPage: 100 });
+  const sendMutation = useSendMessage(chatId);
+  const regenMutation = useRegenerateMessage(chatId);
+  const editMutation = useEditMessage(chatId);
+  const deleteMsgMutation = useDeleteMessage(chatId);
+  const renameMutation = useRenameChat();
+  const anamnesisMutation = useGenerateAnamnesis();
+
+  // pendingMessages overlays the server cache for optimistic + in-flight
+  // stream rows. Cleared once the server has the same row (post-invalidate).
+  const [pendingMessages, setPendingMessages] = useState([]);
   const [error, setError] = useState('');
 
   const [input, setInput] = useState('');
-  const [sending, setSending] = useState(false);
   const [useStreaming, setUseStreaming] = useState(true);
   const [streamingText, setStreamingText] = useState('');
+  const [streamingSending, setStreamingSending] = useState(false);
 
-  const [regenLoading, setRegenLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
-  const [generatingAnamnesis, setGeneratingAnamnesis] = useState(false);
 
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
@@ -40,42 +53,43 @@ export default function ChatDetail() {
   const abortRef = useRef(null);
   const scrollRef = useRef(null);
 
-  const loadChat = useCallback(async () => {
-    try {
-      const data = await getChat(chatId, { page: 1, perPage: 100 });
-      setChat({ id: data.id, title: data.title, created_at: data.created_at });
-      const msgs = data.messages?.data ?? [];
-      setMessages(msgs);
-      setError('');
-    } catch (err) {
-      if (err.response?.status === 404) {
-        setError(t('chats.notFound'));
-      } else {
-        setError(err.response?.data?.message || t('chats.failedLoad'));
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [chatId, t]);
+  const chat = chatQuery.data ? {
+    id: chatQuery.data.id,
+    title: chatQuery.data.title,
+    created_at: chatQuery.data.created_at,
+  } : null;
+  const persistedMessages = chatQuery.data?.messages?.data ?? [];
+  const messages = [...persistedMessages, ...pendingMessages];
+  const loading = chatQuery.isLoading;
 
-  useEffect(() => { loadChat(); }, [loadChat]);
+  const queryError = chatQuery.isError
+    ? (chatQuery.error?.response?.status === 404
+        ? t('chats.notFound')
+        : extractApiError(chatQuery.error, 'chats.failedLoad'))
+    : '';
+  const displayError = error || queryError;
+
+  const sending = streamingSending || sendMutation.isPending;
+  const regenLoading = regenMutation.isPending;
+  const generatingAnamnesis = anamnesisMutation.isPending;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages, streamingText]);
+  }, [messages.length, streamingText]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const handleSendStreaming = async (text) => {
-    const optimisticUser = {
-      id: `temp-user-${Date.now()}`,
+    const optimisticUserId = `temp-user-${Date.now()}`;
+    setPendingMessages((prev) => [...prev, {
+      id: optimisticUserId,
       role: 'user',
       message: text,
       created_at: new Date().toISOString(),
       _pending: true,
-    };
-    setMessages((prev) => [...prev, optimisticUser]);
+    }]);
     setStreamingText('');
+    setStreamingSending(true);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -95,12 +109,10 @@ export default function ChatDetail() {
           if (event === 'meta') {
             if (data?.user_message_id) {
               userMessageId = data.user_message_id;
-              setMessages((prev) => prev.map((m) =>
-                m.id === optimisticUser.id ? { ...m, id: userMessageId, _pending: false } : m,
+              setPendingMessages((prev) => prev.map((m) =>
+                m.id === optimisticUserId ? { ...m, id: userMessageId, _pending: false } : m,
               ));
             }
-            // Backend now also sends assistant_message_id in meta so
-            // the placeholder can be created with its real id from the start.
             if (data?.assistant_message_id) {
               assistantMessageId = data.assistant_message_id;
             }
@@ -123,8 +135,17 @@ export default function ChatDetail() {
         },
       });
 
-      setMessages((prev) => [
-        ...prev,
+      // Server has the row; refetch will replace pending entries.
+      // Until the refetch lands, hold a final pending bubble for both rows
+      // so the UI doesn't flicker to empty.
+      setPendingMessages((prev) => [
+        ...prev.filter((m) => m.id !== optimisticUserId && m.id !== userMessageId),
+        userMessageId ? {
+          id: userMessageId,
+          role: 'user',
+          message: text,
+          created_at: new Date().toISOString(),
+        } : null,
         {
           id: assistantMessageId ?? `temp-assistant-${Date.now()}`,
           role: 'assistant',
@@ -132,36 +153,45 @@ export default function ChatDetail() {
           status: assistantStatus,
           created_at: new Date().toISOString(),
         },
-      ]);
+      ].filter(Boolean));
       setStreamingText('');
 
       if (assistantStatus === 'partial') {
         setError(t('chats.streamPartial'));
       }
+
+      // Invalidate in the background; once it resolves the persistedMessages
+      // include the new rows and we drop them from pendingMessages.
+      const result = await queryClient.invalidateQueries({ queryKey: ['chat', chatId] });
+      setPendingMessages([]);
+      void result;
     } catch (err) {
+      // On stream error, drop optimistic rows (server has nothing yet).
+      setPendingMessages((prev) => prev.filter((m) => m.id !== optimisticUserId && m.id !== userMessageId));
       setError(err.message || t('chats.streamFailed'));
       setStreamingText('');
+    } finally {
+      setStreamingSending(false);
     }
   };
 
   const handleSendSync = async (text) => {
-    const optimisticUser = {
-      id: `temp-user-${Date.now()}`,
+    const optimisticUserId = `temp-user-${Date.now()}`;
+    setPendingMessages((prev) => [...prev, {
+      id: optimisticUserId,
       role: 'user',
       message: text,
       created_at: new Date().toISOString(),
       _pending: true,
-    };
-    setMessages((prev) => [...prev, optimisticUser]);
+    }]);
 
     try {
-      const data = await sendMessageSync(chatId, text, locale);
-      setMessages((prev) => {
-        const withoutTemp = prev.filter((m) => m.id !== optimisticUser.id);
-        return [...withoutTemp, data.user_message, data.assistant_message].filter(Boolean);
-      });
+      await sendMutation.mutateAsync({ message: text, locale });
+      // Mutation's onSuccess invalidated the chat query; clear pending once
+      // the next data is in.
+      setPendingMessages([]);
     } catch (err) {
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticUser.id));
+      setPendingMessages((prev) => prev.filter((m) => m.id !== optimisticUserId));
       setError(extractApiError(err, 'chats.sendFailed'));
     }
   };
@@ -171,33 +201,20 @@ export default function ChatDetail() {
     const text = input.trim();
     if (!text || sending) return;
     setInput('');
-    setSending(true);
     setError('');
-    try {
-      if (useStreaming) await handleSendStreaming(text);
-      else await handleSendSync(text);
-    } finally {
-      setSending(false);
+    if (useStreaming) {
+      await handleSendStreaming(text);
+    } else {
+      await handleSendSync(text);
     }
   };
 
   const handleRegenerate = async () => {
-    setRegenLoading(true);
     setError('');
     try {
-      setMessages((prev) => {
-        const lastAssistantIdx = [...prev].reverse().findIndex((m) => m.role === 'assistant');
-        if (lastAssistantIdx === -1) return prev;
-        const idx = prev.length - 1 - lastAssistantIdx;
-        return prev.slice(0, idx);
-      });
-      const { assistant_message } = await regenerateMessage(chatId, locale);
-      if (assistant_message) setMessages((prev) => [...prev, assistant_message]);
+      await regenMutation.mutateAsync(locale);
     } catch (err) {
       setError(extractApiError(err, 'chats.regenerateFailed'));
-      await loadChat();
-    } finally {
-      setRegenLoading(false);
     }
   };
 
@@ -219,39 +236,28 @@ export default function ChatDetail() {
     setEditText('');
     setError('');
     try {
-      const data = await editMessage(chatId, messageId, text, locale);
-      setMessages((prev) => {
-        const idx = prev.findIndex((m) => m.id === messageId);
-        if (idx === -1) return prev;
-        const truncated = prev.slice(0, idx);
-        return [...truncated, data.user_message, data.assistant_message].filter(Boolean);
-      });
+      await editMutation.mutateAsync({ messageId, message: text, locale });
     } catch (err) {
       setError(extractApiError(err, 'chats.editFailed'));
-      await loadChat();
     }
   };
 
   const handleDeleteMsg = async (id) => {
     setError('');
     try {
-      await deleteMessage(chatId, id);
-      setMessages((prev) => prev.filter((m) => m.id !== id));
+      await deleteMsgMutation.mutateAsync(id);
     } catch (err) {
       setError(extractApiError(err, 'chats.deleteFailed'));
     }
   };
 
   const handleGenerateAnamnesis = async () => {
-    setGeneratingAnamnesis(true);
     setError('');
     try {
-      const anamnesis = await generateFromChat(chatId, locale);
+      const anamnesis = await anamnesisMutation.mutateAsync({ chatId, locale });
       navigate(`/admin/anamneses/${anamnesis.id}`);
     } catch (err) {
       setError(extractApiError(err, 'anamneses.generateFailed'));
-    } finally {
-      setGeneratingAnamnesis(false);
     }
   };
 
@@ -262,12 +268,11 @@ export default function ChatDetail() {
 
   const saveTitle = async () => {
     const v = titleDraft.trim();
-    if (!v || v === chat.title) { setEditingTitle(false); return; }
+    if (!v || v === chat?.title) { setEditingTitle(false); return; }
     try {
-      const data = await renameChat(chatId, v);
-      setChat((c) => ({ ...c, title: data.title ?? v }));
+      await renameMutation.mutateAsync({ id: chatId, title: v });
     } catch (err) {
-      setError(err.response?.data?.message || t('chats.renameFailed'));
+      setError(extractApiError(err, 'chats.renameFailed'));
     } finally {
       setEditingTitle(false);
     }
@@ -284,7 +289,7 @@ export default function ChatDetail() {
   if (!chat) {
     return (
       <div className="mx-auto max-w-2xl p-6 text-center">
-        <p className="text-gray-600 dark:text-gray-300">{error || t('chats.notFound')}</p>
+        <p className="text-gray-600 dark:text-gray-300">{displayError || t('chats.notFound')}</p>
         <Link to="/admin/chats" className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300">
           <ArrowLeft className="h-4 w-4" /> {t('chats.backToList')}
         </Link>
@@ -338,9 +343,9 @@ export default function ChatDetail() {
         </button>
       </header>
 
-      {error && (
+      {displayError && (
         <div className="mx-4 mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
-          {error}
+          {displayError}
         </div>
       )}
 

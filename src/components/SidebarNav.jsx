@@ -1,39 +1,28 @@
-import { useEffect, useState, useCallback } from 'react';
 import { Link, NavLink, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Home, MessageSquare, FileText, Plus, Trash2, User as UserIcon, Activity } from 'lucide-react';
-import { listChats, createChat, deleteChat } from '../api/chats';
 import { useNavigate } from 'react-router-dom';
+import { useChatsList, useCreateChat, useDeleteChat } from '../api/hooks/useChats';
 
 export default function SidebarNav() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { chatId } = useParams();
-  const [chats, setChats] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
 
-  const fetch = useCallback(async () => {
-    try {
-      const data = await listChats({ page: 1, perPage: 15 });
-      setChats(data.data ?? []);
-    } catch {
-      setChats([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const chatsQuery = useChatsList({ page: 1, perPage: 15 });
+  const createMutation = useCreateChat();
+  const deleteMutation = useDeleteChat();
 
-  useEffect(() => { fetch(); }, [fetch, chatId]);
+  const chats = chatsQuery.data?.data ?? [];
+  const loading = chatsQuery.isLoading;
+  const creating = createMutation.isPending;
 
   const handleNew = async () => {
-    setCreating(true);
     try {
-      const chat = await createChat();
+      const chat = await createMutation.mutateAsync();
       navigate(`/admin/chats/${chat.id}`);
-      fetch();
-    } finally {
-      setCreating(false);
+    } catch {
+      // ignore — sidebar errors are silent here; the chat list page surfaces them
     }
   };
 
@@ -42,10 +31,11 @@ export default function SidebarNav() {
     e.stopPropagation();
     if (!confirm(t('chats.deleteConfirmMsg'))) return;
     try {
-      await deleteChat(id);
-      setChats((prev) => prev.filter((c) => c.id !== id));
+      await deleteMutation.mutateAsync(id);
       if (chatId === String(id)) navigate('/admin/chats');
-    } catch {}
+    } catch {
+      // ignore — same reason as above
+    }
   };
 
   const navItems = [
