@@ -9,6 +9,8 @@ const AuthContext = createContext({
   register: async () => {},
   logout: async () => {},
   refreshUser: async () => {},
+  updateProfile: async () => {},
+  changePassword: async () => {},
   can: () => false,
   hasRole: () => false,
   loading: true,
@@ -74,12 +76,27 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateProfile = useCallback(async (patch) => {
+    const { data } = await axiosClient.patch('/user', patch);
+    applySession(data);
+    return data;
+  }, [applySession]);
+
+  const changePassword = useCallback(async ({ current_password, password, password_confirmation }) => {
+    const { data } = await axiosClient.put('/user/password', {
+      current_password,
+      password,
+      password_confirmation,
+    });
+    return data;
+  }, []);
+
   const can = useCallback((perm) => permissions.includes(perm), [permissions]);
   const hasRole = useCallback((role) => roles.includes(role), [roles]);
 
   return (
     <AuthContext.Provider
-      value={{ user, roles, permissions, login, register, logout, refreshUser, can, hasRole, loading }}
+      value={{ user, roles, permissions, login, register, logout, refreshUser, updateProfile, changePassword, can, hasRole, loading }}
     >
       {children}
     </AuthContext.Provider>
