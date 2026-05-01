@@ -16,40 +16,67 @@ module.exports = {
         ],
       },
       colors: {
+        // Calmer teal — the "medical-grade" identity. Same family as
+        // before but desaturated; brand-500 reads as trustworthy rather
+        // than electric.
         brand: {
-          50: '#ebfffb',
-          100: '#d2fff5',
-          200: '#a6fbeb',
-          300: '#74f3df',
-          400: '#4ce6d0',
-          500: '#0deacf',
-          600: '#0abba5',
-          700: '#0c9587',
-          800: '#117468',
-          900: '#135f55',
-          950: '#053a35',
+          50:  '#f0fdfa',
+          100: '#ccfbf1',
+          200: '#99f6e4',
+          300: '#5eead4',
+          400: '#2dd4bf',
+          500: '#14b8a6',
+          600: '#0d9488',
+          700: '#0f766e',
+          800: '#115e59',
+          900: '#134e4a',
+          950: '#042f2e',
         },
+        // Extended slate scale — cool dark surfaces in dark mode without
+        // tinting toward teal. Pairs well with the brand teal as accent.
         deep: {
-          500: '#255c60',
-          600: '#1e465b',
-          700: '#103648',
-          800: '#0a2a38',
-          900: '#061b25',
+          50:  '#f8fafc',
+          100: '#f1f5f9',
+          200: '#e2e8f0',
+          300: '#cbd5e1',
+          400: '#94a3b8',
+          500: '#475569',
+          600: '#334155',
+          700: '#1e293b',
+          800: '#0f172a',
+          900: '#020617',
         },
-        onBrand: '#052e2a',
+        // Warm accent for highlights distinct from the primary CTA —
+        // partial-stream badges, "generate anamnesis" emphasis, etc.
+        accent: {
+          50:  '#fff7ed',
+          100: '#ffedd5',
+          200: '#fed7aa',
+          400: '#fb923c',
+          500: '#f97316',
+          600: '#ea580c',
+          700: '#c2410c',
+        },
+        // Foreground text on bright brand surfaces. Slightly cooler now
+        // to match the deeper teal-700.
+        onBrand: '#042f2e',
       },
       boxShadow: {
-        brand: '0 20px 60px -15px rgba(13, 234, 207, 0.35)',
-        pill: '0 6px 14px -6px rgba(10, 187, 165, 0.55)',
-        logo: '0 8px 20px -6px rgba(13, 234, 207, 0.45)',
+        // rgba(20, 184, 166) = brand-500 #14b8a6
+        brand: '0 20px 60px -15px rgba(20, 184, 166, 0.30)',
+        // rgba(13, 148, 136) = brand-600 #0d9488
+        pill: '0 6px 14px -6px rgba(13, 148, 136, 0.50)',
+        logo: '0 8px 20px -6px rgba(20, 184, 166, 0.40)',
       },
       backgroundImage: {
-        'grad-wordmark': 'linear-gradient(90deg, #2da7e6, #0abba5)',
-        'grad-pill': 'linear-gradient(135deg, #0deacf, #0abba5)',
-        'grad-guest': 'linear-gradient(135deg, #ffffff, #e3eef1, #ebfffb)',
-        'grad-guest-dark': 'linear-gradient(135deg, #061b25, #0a2a38, #103648)',
-        'grad-ai': 'linear-gradient(135deg, #ebfffb, #effaf8)',
-        'grad-cta-deep': 'linear-gradient(135deg, #1e465b, #103648)',
+        // Wordmark keeps the cool blue→teal pivot but lands on the new
+        // brand-600 instead of the old electric green-teal.
+        'grad-wordmark': 'linear-gradient(90deg, #2da7e6, #0d9488)',
+        'grad-pill': 'linear-gradient(135deg, #14b8a6, #0d9488)',
+        'grad-guest': 'linear-gradient(135deg, #ffffff, #f1f5f9, #f0fdfa)',
+        'grad-guest-dark': 'linear-gradient(135deg, #020617, #0f172a, #1e293b)',
+        'grad-ai': 'linear-gradient(135deg, #f0fdfa, #ecfeff)',
+        'grad-cta-deep': 'linear-gradient(135deg, #334155, #1e293b)',
       },
       keyframes: {
         'fade-in': {

@@ -32,7 +32,7 @@ function GuestRoute({ children }) {
 }
 
 function suspended(node) {
-  return <Suspense fallback={<LoadingScreen />}>{node}</Suspense>;
+  return <Suspense fallback={<LoadingScreen fullscreen={false} />}>{node}</Suspense>;
 }
 
 const router = createBrowserRouter([
