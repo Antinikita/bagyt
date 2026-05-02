@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Activity, Plus, Loader2 } from 'lucide-react';
-import { useHealthMetrics, usePostHealthMetrics } from '../api/hooks/useHealth';
+import { Activity, Plus, Loader2, TrendingUp } from 'lucide-react';
+import { useHealthMetrics, usePostHealthMetrics, useHealthNorms } from '../api/hooks/useHealth';
 import { extractApiError } from '../api/axios-client';
 import { getDateLocale } from '../lib/locale';
+import MetricTrendChart from '../components/charts/MetricTrendChart';
 
 const TYPE_OPTIONS = [
   { value: 'steps', unit: 'count' },
@@ -77,6 +78,8 @@ export default function Health() {
           <p className="text-sm text-gray-500 dark:text-gray-400">{t('health.pageSubtitle')}</p>
         </div>
       </header>
+
+      <TrendsSection />
 
       <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-deep-700 dark:bg-deep-800">
         <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
@@ -194,6 +197,71 @@ export default function Health() {
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function TrendsSection() {
+  const { t } = useTranslation();
+  const { data: normsData } = useHealthNorms();
+  const norms = normsData?.norms ?? {};
+  const userMeta = normsData?.user;
+
+  const ageSexLabel = userMeta?.age && userMeta?.sex
+    ? `${userMeta.age} ${t(`profile.${userMeta.sex}`, { defaultValue: userMeta.sex })}`
+    : '';
+
+  return (
+    <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-deep-700 dark:bg-deep-800">
+      <header className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-deep-700 dark:text-brand-300">
+            <TrendingUp className="h-4 w-4" />
+          </span>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              {t('health.trends')}
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {t('health.last30Days')}
+              {ageSexLabel && ` · ${t('health.normFor', { profile: ageSexLabel })}`}
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <ChartCard label={t('health.types.steps')}>
+          <MetricTrendChart type="steps" norm={norms.steps} unitSuffix={t('health.steps').toLowerCase()} />
+        </ChartCard>
+        <ChartCard label={t('health.types.heart_rate')}>
+          <MetricTrendChart
+            type="heart_rate"
+            norm={norms.heart_rate}
+            unitSuffix={t('health.bpm')}
+            color="#f43f5e"
+          />
+        </ChartCard>
+        <ChartCard label={t('health.types.sleep_duration')} className="lg:col-span-2">
+          <MetricTrendChart
+            type="sleep_duration"
+            norm={norms.sleep_duration}
+            unitSuffix="min"
+            color="#6366f1"
+          />
+        </ChartCard>
+      </div>
+    </section>
+  );
+}
+
+function ChartCard({ label, children, className = '' }) {
+  return (
+    <div className={`rounded-xl border border-gray-100 bg-gray-50/40 p-4 dark:border-deep-700 dark:bg-deep-700/30 ${className}`}>
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+        {label}
+      </p>
+      {children}
     </div>
   );
 }

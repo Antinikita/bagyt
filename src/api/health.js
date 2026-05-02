@@ -39,3 +39,18 @@ export async function listHealthMetrics({ type, from, to, limit = 100 } = {}) {
   });
   return data;
 }
+
+/**
+ * @returns {Promise<{
+ *   user: { age: number|null, sex: string|null },
+ *   norms: Record<string, {
+ *     min?: number, max?: number, avg?: number,
+ *     low?: number, target?: number, high?: number,
+ *     unit: string, label: string,
+ *   }>,
+ * }>}
+ */
+export async function getHealthNorms() {
+  const { data } = await axiosClient.get('/health/norms');
+  return data;
+}

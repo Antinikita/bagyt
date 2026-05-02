@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getHealthSummary, listHealthMetrics, postHealthMetrics } from '../health';
+import { getHealthSummary, listHealthMetrics, postHealthMetrics, getHealthNorms } from '../health';
 
 export const healthKeys = {
   all: ['health'],
   summary: (date) => ['health', 'summary', date ?? 'today'],
   metrics: (filters) => ['health', 'metrics', filters],
+  norms: ['health', 'norms'],
 };
 
 export function useHealthSummary(date = null) {
@@ -28,5 +29,15 @@ export function usePostHealthMetrics() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: healthKeys.all });
     },
+  });
+}
+
+export function useHealthNorms() {
+  return useQuery({
+    queryKey: healthKeys.norms,
+    queryFn: getHealthNorms,
+    // Norms key on user.age + user.sex which only change via Profile
+    // edit; safe to cache for the whole session.
+    staleTime: 60 * 60 * 1000,
   });
 }
