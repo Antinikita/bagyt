@@ -1,42 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FileText, Inbox, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
-import { listAnamneses } from '../api/anamneses';
+import { useAnamnesesList } from '../api/hooks/useAnamneses';
+import { extractApiError } from '../api/axios-client';
 import { getDateLocale } from '../lib/locale';
 
 export default function Anamneses() {
   const { t, i18n } = useTranslation();
   const locale = getDateLocale(i18n.resolvedLanguage);
 
-  const [items, setItems] = useState([]);
-  const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const query = useAnamnesesList({ page, perPage: 20 });
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    listAnamneses({ page, perPage: 20 })
-      .then((data) => {
-        if (cancelled) return;
-        setItems(data.data ?? []);
-        setMeta({
-          current_page: data.current_page ?? 1,
-          last_page: data.last_page ?? 1,
-          total: data.total ?? 0,
-        });
-        setError('');
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setError(err.response?.data?.message || t('anamneses.failedLoadList'));
-        setItems([]);
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [page, t]);
+  const items = query.data?.data ?? [];
+  const meta = {
+    current_page: query.data?.current_page ?? 1,
+    last_page: query.data?.last_page ?? 1,
+    total: query.data?.total ?? 0,
+  };
+  const loading = query.isLoading;
+  const error = query.isError ? extractApiError(query.error, 'anamneses.failedLoadList') : '';
 
   const formatDate = (d) => d ? new Date(d).toLocaleDateString(locale, {
     year: 'numeric', month: 'short', day: 'numeric',

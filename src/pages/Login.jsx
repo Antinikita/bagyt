@@ -11,6 +11,7 @@ import ErrorBanner from '../components/ui/ErrorBanner';
 import Divider from '../components/ui/Divider';
 import SocialButton from '../components/ui/SocialButton';
 import { useAuth } from '../context/AuthContext';
+import { extractApiError } from '../api/axios-client';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -29,9 +30,7 @@ export default function Login() {
       await login(email, password);
       navigate('/admin/dashboard');
     } catch (err) {
-      setError(
-        err.response?.data?.message || err.message || t('auth.loginFailed'),
-      );
+      setError(extractApiError(err, 'auth.loginFailed'));
     } finally {
       setLoading(false);
     }

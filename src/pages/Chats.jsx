@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, Search, MessageSquare, Trash2, Inbox, ChevronLeft, ChevronRight } from 'lucide-react';
-import { listChats, createChat, deleteChat } from '../api/chats';
+import { useChatsList, useCreateChat, useDeleteChat } from '../api/hooks/useChats';
+import useDebouncedValue from '../lib/useDebouncedValue';
+import { extractApiError } from '../api/axios-client';
 import { getDateLocale } from '../lib/locale';
 import Button from '../components/ui/Button';
 
@@ -11,62 +13,48 @@ export default function Chats() {
   const locale = getDateLocale(i18n.resolvedLanguage);
   const navigate = useNavigate();
 
-  const [chats, setChats] = useState([]);
-  const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
-  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
+  const debouncedQ = useDebouncedValue(q, 250);
 
-  const fetchChats = useCallback(async (searchQuery, pageNum) => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await listChats({ q: searchQuery, page: pageNum, perPage: 20 });
-      setChats(data.data ?? []);
-      setMeta({
-        current_page: data.current_page ?? 1,
-        last_page: data.last_page ?? 1,
-        total: data.total ?? 0,
-      });
-    } catch (err) {
-      setError(err.response?.data?.message || t('chats.failedLoadList'));
-      setChats([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+  const chatsQuery = useChatsList({ q: debouncedQ, page, perPage: 20 });
+  const createMutation = useCreateChat();
+  const deleteMutation = useDeleteChat();
 
-  useEffect(() => {
-    const handle = setTimeout(() => fetchChats(q, page), q ? 250 : 0);
-    return () => clearTimeout(handle);
-  }, [q, page, fetchChats]);
+  const chats = chatsQuery.data?.data ?? [];
+  const meta = {
+    current_page: chatsQuery.data?.current_page ?? 1,
+    last_page: chatsQuery.data?.last_page ?? 1,
+    total: chatsQuery.data?.total ?? 0,
+  };
+  const loading = chatsQuery.isLoading;
+  const creating = createMutation.isPending;
+  const deleting = deleteMutation.isPending;
+
+  const queryError = chatsQuery.isError
+    ? extractApiError(chatsQuery.error, 'chats.failedLoadList')
+    : '';
+  const displayError = error || queryError;
 
   const handleCreate = async () => {
-    setCreating(true);
+    setError('');
     try {
-      const chat = await createChat();
+      const chat = await createMutation.mutateAsync();
       navigate(`/admin/chats/${chat.id}`);
     } catch (err) {
-      setError(err.response?.data?.message || t('chats.failedCreate'));
-    } finally {
-      setCreating(false);
+      setError(extractApiError(err, 'chats.failedCreate'));
     }
   };
 
   const handleDelete = async (id) => {
-    setDeleting(true);
+    setError('');
     try {
-      await deleteChat(id);
-      setChats((prev) => prev.filter((c) => c.id !== id));
+      await deleteMutation.mutateAsync(id);
       setPendingDeleteId(null);
     } catch (err) {
-      setError(err.response?.data?.message || t('chats.failedDelete'));
-    } finally {
-      setDeleting(false);
+      setError(extractApiError(err, 'chats.failedDelete'));
     }
   };
 
@@ -105,9 +93,9 @@ export default function Chats() {
         />
       </div>
 
-      {error && (
+      {displayError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
-          {error}
+          {displayError}
         </div>
       )}
 

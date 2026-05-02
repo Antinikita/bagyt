@@ -4,6 +4,7 @@ import { LogOut } from 'lucide-react';
 import ThemeToggle from './ui/ThemeToggle';
 import LanguageSwitcher from './ui/LanguageSwitcher';
 import Button from './ui/Button';
+import SearchBar from './SearchBar';
 import { getInitials } from '../lib/initials';
 
 export default function Header({ user, logout }) {
@@ -33,6 +34,12 @@ export default function Header({ user, logout }) {
           </span>
           <h1 className="text-xl font-bold tracking-tight t-wordmark">Bağyt</h1>
         </div>
+
+        {user && (
+          <div className="hidden flex-1 justify-center px-4 md:flex">
+            <SearchBar />
+          </div>
+        )}
 
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="hidden sm:block">

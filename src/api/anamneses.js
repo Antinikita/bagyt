@@ -34,6 +34,10 @@ export async function deleteAnamnesis(id) {
 
 export async function generateFromChat(chatId, locale) {
   const body = locale ? { locale } : {};
-  const { data } = await axiosClient.post(`/chats/${chatId}/anamnesis`, body);
+  const { data } = await axiosClient.post(
+    `/chats/${chatId}/anamnesis`,
+    body,
+    { idempotent: true },
+  );
   return data.anamnesis ?? data;
 }
