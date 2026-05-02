@@ -1,22 +1,22 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceArea, ReferenceLine, ResponsiveContainer,
 } from 'recharts';
 import { useHealthMetrics } from '../../api/hooks/useHealth';
 import { getDateLocale } from '../../lib/locale';
 
 /**
- * 30-day trend chart for one metric type, with the user's norm range
- * shaded as a reference area and (for steps) a target line drawn at
- * the recommended daily figure.
+ * Editorial-premium replacement for MetricTrendChart.
  *
- * Data comes from GET /api/health/metrics filtered by type + a 30-day
- * window. Norms come from the parent (already fetched once via
- * useHealthNorms() and shared across the three charts).
+ * Visual upgrade: AreaChart with gradient fill instead of a bare line,
+ * the user's norm band drawn behind the area as a tinted ReferenceArea,
+ * a target line dashed across the chart for steps. Same data contract
+ * as before — fetches via useHealthMetrics, takes a `norm` prop from
+ * the parent (already cached via useHealthNorms across all charts).
  */
-export default function MetricTrendChart({
+export default function MetricAreaChart({
   type,
   norm,
   days = 30,
@@ -36,7 +36,6 @@ export default function MetricTrendChart({
   const query = useHealthMetrics({ type, from, to, limit: 100 });
   const rawMetrics = query.data?.metrics ?? [];
 
-  // Sort ascending by date; recharts wants forward time.
   const data = useMemo(() => {
     return [...rawMetrics]
       .sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at))
@@ -46,9 +45,6 @@ export default function MetricTrendChart({
       }));
   }, [rawMetrics]);
 
-  const xMin = data[0]?.date ?? from;
-  const xMax = data.at(-1)?.date ?? to;
-
   const formatDate = (iso) => {
     try {
       return new Date(iso).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' });
@@ -57,8 +53,6 @@ export default function MetricTrendChart({
     }
   };
 
-  // Y-axis bounds: hug the norm band + the data range so the chart
-  // doesn't squash a low/high band off-screen.
   const allYValues = [
     ...data.map((d) => d.value),
     norm?.min, norm?.max, norm?.low, norm?.high, norm?.target,
@@ -66,15 +60,13 @@ export default function MetricTrendChart({
   const yMin = allYValues.length ? Math.max(0, Math.floor(Math.min(...allYValues) * 0.85)) : 0;
   const yMax = allYValues.length ? Math.ceil(Math.max(...allYValues) * 1.15) : 100;
 
-  // Resolve the norm band: heart_rate + sleep use min/max; steps uses low/high.
   const bandLow = norm?.min ?? norm?.low ?? null;
   const bandHigh = norm?.max ?? norm?.high ?? null;
   const targetLine = norm?.target ?? norm?.avg ?? null;
+  const gradientId = `area-grad-${type}`;
 
   if (query.isLoading) {
-    return (
-      <div className="h-56 animate-pulse rounded-xl bg-gray-100 dark:bg-deep-700/40" />
-    );
+    return <div className="h-56 animate-pulse rounded-xl bg-gray-100 dark:bg-deep-700/40" />;
   }
 
   if (!data.length) {
@@ -88,16 +80,22 @@ export default function MetricTrendChart({
   return (
     <div className="h-56 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+        <AreaChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.45} />
+              <stop offset="80%" stopColor={color} stopOpacity={0.04} />
+            </linearGradient>
+          </defs>
           <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-deep-700" />
           {bandLow !== null && bandHigh !== null && (
             <ReferenceArea
               y1={bandLow}
               y2={bandHigh}
               fill={color}
-              fillOpacity={0.08}
+              fillOpacity={0.06}
               stroke={color}
-              strokeOpacity={0.2}
+              strokeOpacity={0.18}
               strokeDasharray="3 3"
               ifOverflow="visible"
               label={{
@@ -115,12 +113,7 @@ export default function MetricTrendChart({
               stroke={color}
               strokeWidth={1}
               strokeDasharray="4 4"
-              label={{
-                value: t('health.target'),
-                position: 'right',
-                fontSize: 10,
-                fill: color,
-              }}
+              label={{ value: t('health.target'), position: 'right', fontSize: 10, fill: color }}
             />
           )}
           <XAxis
@@ -140,23 +133,20 @@ export default function MetricTrendChart({
           <Tooltip
             labelFormatter={formatDate}
             formatter={(value) => [`${value}${unitSuffix ? ' ' + unitSuffix : ''}`, t(`health.types.${type}`)]}
-            contentStyle={{
-              fontSize: 12,
-              borderRadius: 8,
-              backgroundColor: 'var(--tooltip-bg, white)',
-              border: '1px solid var(--tooltip-border, #e5e7eb)',
-            }}
+            contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
           />
-          <Line
+          <Area
             type="monotone"
             dataKey="value"
             stroke={color}
             strokeWidth={2}
-            dot={{ r: 3, strokeWidth: 0, fill: color }}
+            fill={`url(#${gradientId})`}
+            dot={{ r: 2.5, strokeWidth: 0, fill: color }}
             activeDot={{ r: 5 }}
-            isAnimationActive={false}
+            isAnimationActive={true}
+            animationDuration={400}
           />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );

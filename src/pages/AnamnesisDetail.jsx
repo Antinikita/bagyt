@@ -1,11 +1,30 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Trash2, Save, Pencil, X } from 'lucide-react';
+import { ArrowLeft, Trash2, Save, Pencil, X, Footprints, Heart, Moon } from 'lucide-react';
 import { ANAMNESIS_FIELDS } from '../api/anamneses';
 import { useAnamnesis, useUpdateAnamnesis, useDeleteAnamnesis } from '../api/hooks/useAnamneses';
 import { extractApiError } from '../api/axios-client';
+import { formatSleep, formatNormRange } from '../lib/health';
 import Button from '../components/ui/Button';
+
+const STATUS_TONE = {
+  below: 'text-amber-700 dark:text-amber-300',
+  normal: 'text-emerald-700 dark:text-emerald-300',
+  above: 'text-sky-700 dark:text-sky-300',
+};
+
+const STATUS_DOT = {
+  below: 'bg-amber-500',
+  normal: 'bg-emerald-500',
+  above: 'bg-sky-500',
+};
+
+const HEALTH_ICONS = {
+  steps: Footprints,
+  heart_rate: Heart,
+  sleep_duration: Moon,
+};
 
 export default function AnamnesisDetail() {
   const { anamnesisId } = useParams();
@@ -150,6 +169,13 @@ export default function AnamnesisDetail() {
         ))}
       </div>
 
+      {anamnesis.health_context && !editing && (
+        <HealthContextPanel
+          context={anamnesis.health_context}
+          generatedAt={anamnesis.generated_at || anamnesis.created_at}
+        />
+      )}
+
       {confirmDelete && (
         <div
           role="dialog"
@@ -187,6 +213,87 @@ export default function AnamnesisDetail() {
         </div>
       )}
     </div>
+  );
+}
+
+function HealthContextPanel({ context, generatedAt }) {
+  const { t, i18n } = useTranslation();
+
+  const rows = ['steps', 'heart_rate', 'sleep_duration']
+    .filter((type) => context[type])
+    .map((type) => {
+      const m = context[type];
+      const Icon = HEALTH_ICONS[type];
+      let valueText;
+      if (type === 'sleep_duration') valueText = formatSleep(m.value);
+      else if (type === 'heart_rate') valueText = `${Math.round(m.value)} ${t('health.bpm')}`;
+      else valueText = Math.round(m.value).toLocaleString();
+
+      let normText = '';
+      if (type === 'steps' && m.norm) {
+        normText = `${(m.norm.target ?? 0).toLocaleString()} ${t('health.target').toLowerCase()}`;
+      } else if (type === 'heart_rate') {
+        normText = formatNormRange(m.norm);
+      } else if (type === 'sleep_duration' && m.norm) {
+        normText = `${Math.round((m.norm.min ?? 0) / 60)}–${Math.round((m.norm.max ?? 0) / 60)}h`;
+      }
+
+      return { type, Icon, valueText, normText, status: m.status };
+    });
+
+  if (rows.length === 0) return null;
+
+  const captured = generatedAt
+    ? new Date(generatedAt).toLocaleDateString(i18n.resolvedLanguage, {
+        year: 'numeric', month: 'long', day: 'numeric',
+      })
+    : '';
+
+  return (
+    <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-deep-700 dark:bg-deep-800">
+      <header className="mb-4">
+        <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+          {t('anamneses.healthAtGeneration')}
+        </h2>
+        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+          {t('health.capturedAt', { date: captured })}
+        </p>
+      </header>
+
+      <ul className="space-y-2">
+        {rows.map(({ type, Icon, valueText, normText, status }) => (
+          <li
+            key={type}
+            className="flex items-center justify-between gap-3 border-b border-gray-100 py-2.5 last:border-b-0 dark:border-deep-700/60"
+          >
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-50 text-gray-500 dark:bg-deep-700 dark:text-gray-300">
+                <Icon className="h-3.5 w-3.5" />
+              </span>
+              <span className="truncate text-sm text-gray-700 dark:text-gray-200">
+                {t(`health.types.${type}`)}
+              </span>
+            </div>
+            <div className="flex shrink-0 items-center gap-3 text-xs">
+              <span className="text-sm font-semibold text-gray-900 dark:text-white">{valueText}</span>
+              {normText && (
+                <span className="text-gray-500 dark:text-gray-400">{normText}</span>
+              )}
+              {status && (
+                <span className={`inline-flex items-center gap-1 font-medium ${STATUS_TONE[status]}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[status]}`} />
+                  {t(`health.status${status[0].toUpperCase()}${status.slice(1)}`)}
+                </span>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <p className="mt-4 text-[11px] text-gray-400 dark:text-gray-500">
+        {t('health.educationalDisclaimer')}
+      </p>
+    </section>
   );
 }
 

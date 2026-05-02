@@ -79,7 +79,7 @@ export default function HealthSummaryCard() {
           to="/admin/health"
           className="text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200"
         >
-          {t('common.viewAll')}
+          {t('health.viewTrends')}
         </Link>
       </div>
 
