@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, RefreshCw, Bot, Loader2 } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Bot, Loader2, ArrowDown } from 'lucide-react';
 import {
   useChat,
   useRegenerateMessage,
@@ -17,6 +17,7 @@ import ChatHeader from '../components/chat/ChatHeader';
 import MessageBubble from '../components/chat/MessageBubble';
 import StreamingBubble from '../components/chat/StreamingBubble';
 import MessageInput from '../components/chat/MessageInput';
+import { recordChatVisit } from '../lib/chatVisits';
 
 export default function ChatDetail() {
   const { chatId } = useParams();
@@ -45,6 +46,15 @@ export default function ChatDetail() {
 
   const abortRef = useRef(null);
   const scrollRef = useRef(null);
+  // True while the user is parked near the bottom of the conversation.
+  // Tracks "do they want to follow new content" — flips to false the
+  // moment they scroll up to read history, flips back to true when they
+  // come back near the bottom. Without this, every render snapped them
+  // back down and they could never read older messages in long chats.
+  const stickToBottomRef = useRef(true);
+  // Becomes true when new content arrives while the user is reading
+  // history. Surfaces a "jump to latest" affordance.
+  const [hasNewWhileScrolledUp, setHasNewWhileScrolledUp] = useState(false);
 
   const chat = chatQuery.data
     ? { id: chatQuery.data.id, title: chatQuery.data.title, created_at: chatQuery.data.created_at }
@@ -64,11 +74,48 @@ export default function ChatDetail() {
   const regenLoading = regenMutation.isPending;
   const generatingAnamnesis = anamnesisMutation.isPending;
 
+  // Auto-scroll on new content ONLY when the user is still parked near
+  // the bottom. If they scrolled up to read history, leave them alone
+  // and surface a "jump to latest" pill instead.
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    const el = scrollRef.current;
+    if (!el) return;
+    if (stickToBottomRef.current) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      setHasNewWhileScrolledUp(false);
+    } else {
+      setHasNewWhileScrolledUp(true);
+    }
   }, [messages.length, streamingText]);
 
+  // Track whether the user is near the bottom. Within 120px counts as
+  // "still following" — generous so a small mouse-wheel nudge doesn't
+  // accidentally disable autoscroll.
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const nearBottom = distance < 120;
+    stickToBottomRef.current = nearBottom;
+    if (nearBottom && hasNewWhileScrolledUp) setHasNewWhileScrolledUp(false);
+  };
+
+  const jumpToLatest = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickToBottomRef.current = true;
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    setHasNewWhileScrolledUp(false);
+  };
+
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  // Record this open as a "visit" so the sidebar can rank by
+  // recency-of-attention (matches user mental model of "where did I
+  // just leave off") instead of recency-of-server-write.
+  useEffect(() => {
+    if (chatId) recordChatVisit(chatId);
+  }, [chatId]);
 
   const handleSendStreaming = async (text) => {
     const optimisticUserId = `temp-user-${Date.now()}`;
@@ -240,7 +287,7 @@ export default function ChatDetail() {
 
   return (
     <div className="mx-auto w-full max-w-4xl p-4 sm:p-6">
-      <div className="flex h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-deep-700 dark:bg-deep-800">
+      <div className="relative flex h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-deep-700 dark:bg-deep-800">
         <ChatHeader
           chat={chat}
           onRename={handleRename}
@@ -255,7 +302,7 @@ export default function ChatDetail() {
           </div>
         )}
 
-        <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4">
+        <div ref={scrollRef} onScroll={handleScroll} className="relative flex-1 space-y-4 overflow-y-auto p-4">
           {messages.length === 0 && !streamingText && (
             <div className="flex flex-col items-center justify-center py-16 text-center text-gray-500 dark:text-gray-400">
               <Bot className="h-10 w-10 opacity-50" />
@@ -293,6 +340,18 @@ export default function ChatDetail() {
             </div>
           )}
         </div>
+
+        {hasNewWhileScrolledUp && (
+          <button
+            type="button"
+            onClick={jumpToLatest}
+            aria-label={t('chats.jumpToLatest')}
+            className="absolute bottom-24 left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-brand-500 px-4 py-1.5 text-xs font-semibold text-deep-800 shadow-pill transition-transform hover:scale-105 dark:bg-brand-400"
+          >
+            <ArrowDown className="h-3.5 w-3.5" />
+            {t('chats.jumpToLatest')}
+          </button>
+        )}
 
         <MessageInput onSubmit={handleSendStreaming} sending={sending} />
       </div>

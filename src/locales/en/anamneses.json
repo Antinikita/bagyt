@@ -33,5 +33,6 @@
     "review_of_systems": "Review of systems"
   },
   "charsLeft": "{{count}} characters left",
-  "charsLimitReached": "Character limit reached."
+  "charsLimitReached": "Character limit reached.",
+  "totalCount": "{{count}} anamneses total"
 }

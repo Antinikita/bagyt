@@ -33,5 +33,6 @@
     "review_of_systems": "Жүйелерді шолу"
   },
   "charsLeft": "Қалған таңбалар: {{count}}",
-  "charsLimitReached": "Таңба шегіне жетті."
+  "charsLimitReached": "Таңба шегіне жетті.",
+  "totalCount": "барлық анамнездер: {{count}}"
 }

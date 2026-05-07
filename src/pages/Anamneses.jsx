@@ -11,7 +11,7 @@ export default function Anamneses() {
   const locale = getDateLocale(i18n.resolvedLanguage);
 
   const [page, setPage] = useState(1);
-  const query = useAnamnesesList({ page, perPage: 20 });
+  const query = useAnamnesesList({ page, perPage: 100 });
 
   const items = query.data?.data ?? [];
   const meta = {
@@ -29,9 +29,19 @@ export default function Anamneses() {
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 p-6">
       <header>
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-          {t('anamneses.title')}
-        </h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+            {t('anamneses.title')}
+          </h1>
+          {meta.total > 0 && (
+            <span
+              aria-label={t('anamneses.totalCount', { count: meta.total })}
+              className="inline-flex items-center justify-center rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700 dark:bg-deep-700 dark:text-brand-300"
+            >
+              {meta.total}
+            </span>
+          )}
+        </div>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
           {t('anamneses.subtitle')}
         </p>

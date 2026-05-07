@@ -32,5 +32,7 @@
   "streamPartialBadge": "частично",
   "streamPartialTooltip": "AI-сервис прервал поток до завершения. Текст выше — то, что удалось получить.",
   "renameTitle": "Переименовать чат",
-  "renameFailed": "Не удалось переименовать"
+  "renameFailed": "Не удалось переименовать",
+  "jumpToLatest": "К последнему сообщению",
+  "totalCount": "всего чатов: {{count}}"
 }

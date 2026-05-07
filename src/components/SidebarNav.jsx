@@ -1,21 +1,47 @@
+import { useMemo } from 'react';
 import { Link, NavLink, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Home, MessageSquare, FileText, Plus, Trash2, User as UserIcon, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useChatsList, useCreateChat, useDeleteChat } from '../api/hooks/useChats';
+import { getChatVisits, forgetChatVisit } from '../lib/chatVisits';
+
+// How many recent chats to surface in the sidebar. Beyond this users
+// should use the full /admin/chats list. Keep wide enough that a casual
+// power user (a few dozen open conversations) still sees everything.
+const SIDEBAR_LIMIT = 25;
 
 export default function SidebarNav() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { chatId } = useParams();
 
-  const chatsQuery = useChatsList({ page: 1, perPage: 15 });
+  // Pull a generous slice from the server. The previous perPage:15 cap
+  // caused chats to vanish off the sidebar the moment the 16th was
+  // created — page 1 simply didn't include them anymore. Sort + slice
+  // happens client-side so "last visited" can outrank "last written".
+  const chatsQuery = useChatsList({ page: 1, perPage: 100 });
   const createMutation = useCreateChat();
   const deleteMutation = useDeleteChat();
 
-  const chats = chatsQuery.data?.data ?? [];
+  const allChats = chatsQuery.data?.data ?? [];
   const loading = chatsQuery.isLoading;
   const creating = createMutation.isPending;
+
+  const chats = useMemo(() => {
+    const visits = getChatVisits();
+    const rankOf = (c) => {
+      const visited = visits[String(c.id)];
+      const updated = c.updated_at;
+      // Pick whichever timestamp is more recent. Both are ISO-8601
+      // strings, so lexicographic compare is also chronological.
+      if (visited && updated) return visited > updated ? visited : updated;
+      return visited || updated || '';
+    };
+    return [...allChats]
+      .sort((a, b) => (rankOf(a) < rankOf(b) ? 1 : -1))
+      .slice(0, SIDEBAR_LIMIT);
+  }, [allChats]);
 
   const handleNew = async () => {
     try {
@@ -32,6 +58,7 @@ export default function SidebarNav() {
     if (!confirm(t('chats.deleteConfirmMsg'))) return;
     try {
       await deleteMutation.mutateAsync(id);
+      forgetChatVisit(id);
       if (chatId === String(id)) navigate('/admin/chats');
     } catch {
       // ignore — same reason as above

@@ -33,5 +33,6 @@
     "review_of_systems": "Обзор систем"
   },
   "charsLeft": "Осталось символов: {{count}}",
-  "charsLimitReached": "Достигнут лимит символов."
+  "charsLimitReached": "Достигнут лимит символов.",
+  "totalCount": "всего анамнезов: {{count}}"
 }

@@ -32,5 +32,7 @@
   "streamPartialBadge": "ішінара",
   "streamPartialTooltip": "AI-қызмет ағынды аяқтамай үзді. Жоғарыдағы мәтін — алынғаны.",
   "renameTitle": "Чат атын өзгерту",
-  "renameFailed": "Атын өзгерту сәтсіз"
+  "renameFailed": "Атын өзгерту сәтсіз",
+  "jumpToLatest": "Соңғы хабарламаға",
+  "totalCount": "барлық чаттар: {{count}}"
 }

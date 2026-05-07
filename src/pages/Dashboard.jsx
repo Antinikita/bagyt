@@ -116,6 +116,15 @@ export default function Dashboard() {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {t('dashboard.recentChats')}
               </h2>
+              {chatsQuery.data?.total > 0 && (
+                <span
+                  className="inline-flex items-center justify-center rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700 dark:bg-deep-700 dark:text-brand-300"
+                  aria-label={t('dashboard.totalChats', { count: chatsQuery.data.total })}
+                  title={t('dashboard.showingNofTotal', { showing: chats.length, total: chatsQuery.data.total })}
+                >
+                  {chats.length}/{chatsQuery.data.total}
+                </span>
+              )}
             </div>
             <Link
               to="/admin/chats"

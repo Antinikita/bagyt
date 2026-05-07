@@ -32,5 +32,7 @@
   "streamPartialBadge": "partial",
   "streamPartialTooltip": "The AI service dropped the stream before finishing. The text above is what was received.",
   "renameTitle": "Rename chat",
-  "renameFailed": "Failed to rename"
+  "renameFailed": "Failed to rename",
+  "jumpToLatest": "Jump to latest",
+  "totalCount": "{{count}} chats total"
 }
