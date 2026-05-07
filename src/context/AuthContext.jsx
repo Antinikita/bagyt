@@ -52,6 +52,24 @@ export const AuthProvider = ({ children }) => {
       .finally(() => setLoading(false));
   }, [refreshUser, clearSession]);
 
+  // Two ways the session can die out from under us:
+  //   1. Server returns 401 → axios-client dispatches 'auth:expired'.
+  //   2. Another tab logs out → 'storage' event fires here when its
+  //      removeItem('token') hits localStorage.
+  // Either way, drop React state so ProtectedRoute can redirect.
+  useEffect(() => {
+    const onExpired = () => clearSession();
+    const onStorage = (e) => {
+      if (e.key === 'token' && e.newValue === null) clearSession();
+    };
+    window.addEventListener('auth:expired', onExpired);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('auth:expired', onExpired);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [clearSession]);
+
   const login = async (email, password) => {
     const { data } = await axiosClient.post('/login', { email, password });
     localStorage.setItem('token', data.token);
@@ -69,7 +87,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await axiosClient.post('/logout');
-    } catch (e) {
+    } catch {
       // silent — we always clear local state regardless
     } finally {
       clearSession();

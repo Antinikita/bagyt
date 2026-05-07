@@ -3,12 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Content-Security-Policy: defense-in-depth. 'unsafe-inline' /
+      'unsafe-eval' are needed for Vite HMR in dev — they're harmless in
+      the production bundle (no inline scripts, no eval) but the meta tag
+      can't differ per-environment, so they stay.
+      Production deployments should override this with a stricter HTTP
+      header from the static host (drop both unsafe-* directives, scope
+      connect-src to the actual API origin).
+    -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval';
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' data: blob:;
+      font-src 'self' data:;
+      connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 http://localhost:8765 http://127.0.0.1:8765 ws://localhost:5173 ws://127.0.0.1:5173;
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+    " />
     <title>Bagyt</title>
     <link rel="icon" type="image/x-icon" href="/bagyt.ico" />
   </head>
   <body>
     <div id="root"></div>
-    <!-- Важно: путь к main.jsx -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

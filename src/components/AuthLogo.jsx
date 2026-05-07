@@ -4,11 +4,11 @@ export default function AuthLogo() {
       <span
         aria-hidden="true"
         className="
-          inline-flex h-12 w-12 items-center justify-center rounded-2xl
-          bg-white ring-1 ring-black/5 shadow-logo
+          inline-flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl
+          ring-1 ring-black/5 shadow-logo dark:ring-white/10
         "
       >
-        <img src="/logo-color.svg" alt="" className="h-10 w-10 object-contain" />
+        <img src="/logo-color.svg" alt="" className="h-full w-full object-cover" />
       </span>
       <span className="text-2xl t-wordmark">Bağyt</span>
     </div>

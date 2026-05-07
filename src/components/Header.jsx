@@ -4,7 +4,6 @@ import { LogOut } from 'lucide-react';
 import ThemeToggle from './ui/ThemeToggle';
 import LanguageSwitcher from './ui/LanguageSwitcher';
 import Button from './ui/Button';
-import SearchBar from './SearchBar';
 import { getInitials } from '../lib/initials';
 
 export default function Header({ user, logout }) {
@@ -24,24 +23,18 @@ export default function Header({ user, logout }) {
         <div className="inline-flex items-center gap-2.5">
           <span
             aria-hidden="true"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white ring-1 ring-black/5 shadow-logo"
+            className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl ring-1 ring-black/5 shadow-logo dark:ring-white/10"
           >
             <img
               src="/logo-color.svg"
               alt=""
-              className="h-7 w-7 object-contain"
+              className="h-full w-full object-cover"
             />
           </span>
           <h1 className="text-xl font-bold tracking-tight t-wordmark">Bağyt</h1>
         </div>
 
-        {user && (
-          <div className="hidden flex-1 justify-center px-4 md:flex">
-            <SearchBar />
-          </div>
-        )}
-
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex flex-1 items-center justify-end gap-2 sm:gap-3">
           <div className="hidden sm:block">
             <LanguageSwitcher compact />
           </div>

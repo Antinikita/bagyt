@@ -41,3 +41,19 @@ export async function generateFromChat(chatId, locale) {
   );
   return data.anamnesis ?? data;
 }
+
+export async function downloadAnamnesisPdf(id, locale = 'en') {
+  const response = await axiosClient.get(`/anamneses/${id}/download`, {
+    params: { locale },
+    responseType: 'blob',
+  });
+  const blob = new Blob([response.data], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `anamnesis-${id}-${locale}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

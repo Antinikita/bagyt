@@ -41,16 +41,34 @@ axiosClient.interceptors.response.use(
       if (error.response.status === 429) {
         error.isRateLimited = true;
       }
+      // Server says we're not authenticated. Clear the dead token and
+      // notify AuthProvider so it can drop React state — the
+      // ProtectedRoute guard then redirects to /login on the next render.
+      if (error.response.status === 401 && typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        window.dispatchEvent(new CustomEvent('auth:expired'));
+      }
     }
     return Promise.reject(error);
   },
 );
 
 /**
+ * Error codes the backend uses to flag domain-level failures so the SPA
+ * can show a tailored message instead of the raw upstream string. Keep
+ * in sync with the codes in app/Modules/{Chat,Anamnesis}/Http/Controllers.
+ */
+const STRUCTURED_ERROR_TO_I18N = {
+  AI_UPSTREAM_FAILED: 'errors.aiServiceDown',
+};
+
+/**
  * Pull a user-facing message out of a Laravel error response.
  *
  * Reads (in order):
- *   1. the new structured envelope: { error: { code, message } }
+ *   1. the new structured envelope: { error: { code, message } } — if the
+ *      code maps to a known i18n key (AI down, etc.) we use OUR copy
+ *      instead of the upstream message.
  *   2. Laravel validation errors: { errors: { field: [msg, ...] } }
  *   3. legacy { message } shape (FormRequest fallback)
  *   4. i18n fallback by translation key
@@ -60,8 +78,18 @@ export function extractApiError(err, fallbackKey = 'common.somethingWentWrong') 
     return i18n.t('common.rateLimited');
   }
 
+  // Some callers (sseStream, manual throws) attach .code directly on the
+  // Error instance instead of going through axios.
+  const directCode = err?.code;
+  if (directCode && STRUCTURED_ERROR_TO_I18N[directCode]) {
+    return i18n.t(STRUCTURED_ERROR_TO_I18N[directCode]);
+  }
+
   const data = err?.response?.data;
 
+  if (data?.error?.code && STRUCTURED_ERROR_TO_I18N[data.error.code]) {
+    return i18n.t(STRUCTURED_ERROR_TO_I18N[data.error.code]);
+  }
   if (data?.error?.message) return data.error.message;
 
   if (data?.errors && typeof data.errors === 'object') {

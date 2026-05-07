@@ -1,0 +1,7 @@
+{
+  "somethingBroke": "Something broke",
+  "routeFailed": "This page failed to load.",
+  "unknown": "An unknown error occurred.",
+  "goHome": "Back to dashboard",
+  "aiServiceDown": "Our AI service is temporarily unavailable. Please try again in a moment."
+}

@@ -1,0 +1,11 @@
+{
+  "dashboard": "Главная",
+  "health": "Здоровье",
+  "profile": "Профиль",
+  "chats": "Чаты",
+  "anamneses": "Анамнезы",
+  "navigation": "Основная навигация",
+  "viewAll": "Показать все",
+  "logout": "Выйти",
+  "openProfile": "Открыть профиль"
+}

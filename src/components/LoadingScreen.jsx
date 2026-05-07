@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { Loader2 } from 'lucide-react';
 
 /**
  * Loading spinner. Two modes:
@@ -14,7 +15,10 @@ export default function LoadingScreen({ fullscreen = true }) {
   return (
     <div className={wrapperClass}>
       <div className="flex flex-col items-center gap-4">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-brand-500 dark:border-gray-700 dark:border-t-brand-400" />
+        <Loader2
+          className="h-8 w-8 animate-spin text-brand-500 dark:text-brand-400"
+          style={{ willChange: 'transform' }}
+        />
         <p className="text-sm text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
       </div>
     </div>

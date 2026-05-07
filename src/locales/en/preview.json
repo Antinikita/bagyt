@@ -1,0 +1,11 @@
+{
+  "heroTagline": "AI medical assistant",
+  "heroHeading": "AI-powered health assistant",
+  "heroSubheading": "Chat about symptoms and generate structured anamneses instantly.",
+  "streamingChatTitle": "Streaming chat",
+  "streamingChatDesc": "Real-time token-by-token responses from the AI.",
+  "aiAssistantTitle": "Context-aware assistant",
+  "aiAssistantDesc": "Remembers your profile and conversation history.",
+  "anamnesisGenerationTitle": "One-click anamnesis",
+  "anamnesisGenerationDesc": "Turn any conversation into a structured medical record."
+}

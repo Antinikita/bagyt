@@ -5,6 +5,8 @@ import LoadingScreen from './components/LoadingScreen';
 import RouterErrorBoundary from './components/RouterErrorBoundary';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import AdminLayout from './layouts/AdminLayout';
 import GuestLayout from './components/GuestLayout';
 
@@ -67,6 +69,8 @@ const router = createBrowserRouter([
       { index: true, element: <Navigate to="/login" replace /> },
       { path: 'login', element: <Login /> },
       { path: 'register', element: <Register /> },
+      { path: 'forgot-password', element: <ForgotPassword /> },
+      { path: 'reset-password', element: <ResetPassword /> },
     ],
   },
   { path: '*', element: <Navigate to="/login" replace /> },

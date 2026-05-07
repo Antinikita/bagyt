@@ -1,0 +1,10 @@
+{
+  "light": "Light theme",
+  "dark": "Dark theme",
+  "system": "System theme",
+  "next": {
+    "light": "Switch to dark theme",
+    "dark": "Switch to system theme",
+    "system": "Switch to light theme"
+  }
+}

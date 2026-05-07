@@ -2,8 +2,8 @@
 
 React 18 + Vite frontend for **Panacea**, a three-tier medical consultation system:
 
-- **Laravel API** (this frontend talks to it): `c:\xampp\htdocs\panacea\` — dev server at `http://localhost:8000/api`.
-- **Python FastAPI ai-service**: `c:\xampp\htdocs\ai-service\` — owned by teammates. Not consumed directly by this SPA; Laravel proxies AI calls.
+- **Laravel API** (this frontend talks to it): `c:\Users\Nikita\OneDrive\Рабочий стол\диплом\panacea\` — dev server at `http://localhost:8000/api`.
+- **Python FastAPI ai-service**: `c:\Users\Nikita\OneDrive\Рабочий стол\диплом\ai-service\` — owned by teammates. Not consumed directly by this SPA; Laravel proxies AI calls.
 - **Swift iOS app**: separate repo, consumes the same Laravel API.
 
 Laravel is API-only (no Blade views). Auth is Sanctum Bearer tokens. Roles/permissions via Spatie `laravel-permission` (`admin`, `user`; `chat.*` and `anamnesis.*` permissions). A new user gets the `user` role on registration automatically.
@@ -11,10 +11,12 @@ Laravel is API-only (no Blade views). Auth is Sanctum Bearer tokens. Roles/permi
 ## Stack
 
 - React 18 + JSX (no TypeScript), Vite 7
-- Routing: react-router-dom v6 (`createBrowserRouter`)
-- State: plain React Context (`src/context/AuthContext.jsx`). **No React Query, no Redux.** Keep it that way — this is a diploma project, not an enterprise app.
-- HTTP: **axios** via `src/api/axios-client.js`. Interceptor auto-attaches `Bearer <token>` from `localStorage.token`. Base URL comes from `VITE_API_URL`.
+- Routing: react-router-dom v6 (`createBrowserRouter`), all `/admin/*` pages lazy-loaded
+- **Server state: TanStack Query 5** ([src/lib/queryClient.js](src/lib/queryClient.js)). All API data goes through `useQuery` / `useMutation` hooks in [src/api/hooks/](src/api/hooks/). 30s `staleTime`, retry skips 4xx and 429, no `refetchOnWindowFocus`. Devtools in dev.
+- **Client state: React Context** for cross-cutting concerns only — auth ([AuthContext](src/context/AuthContext.jsx)), theme, language. NOT for cached server data.
+- HTTP: **axios** via [src/api/axios-client.js](src/api/axios-client.js). Interceptor auto-attaches `Bearer <token>` from `localStorage.token`, generates `Idempotency-Key` UUIDs on mutating calls flagged `{ idempotent: true }`. Base URL from `VITE_API_URL`. SSE uses `fetch` + `ReadableStream` ([src/api/sseStream.js](src/api/sseStream.js)) because EventSource can't carry the Authorization header.
 - Styling: Tailwind with custom palette (`brand-*`, `deep-*`) and utility classes (`bg-grad-pill`, `shadow-pill`, `bg-grad-cta-deep`). Dark mode via `dark:` variants.
+- Charts: recharts ([src/components/charts/](src/components/charts/), [src/components/health/](src/components/health/)).
 - i18n: react-i18next, 3 locales inline in [src/i18n.js](src/i18n.js) (en, ru, kk).
 - Icons: lucide-react. Animation: framer-motion.
 
@@ -107,5 +109,5 @@ Frontend should read `permissions` from AuthContext to conditionally render acti
 - Don't send `Accept: text/event-stream` on the stream request unless you also handle the fact that axios will not parse the response; the helper uses raw fetch.
 - Anamnesis generation is long (5–30s). Always show a loading state; don't let the user double-click.
 - Cross-user read returns 404, not 403. Treat 404 on a chat/anamnesis route as "not yours or not found" — don't redirect to a generic error.
-- The Laravel server must be running (`php artisan serve` in `c:\xampp\htdocs\panacea\`), and the ai-service ngrok tunnel must be up, or set `AI_USE_MOCK=true` in Laravel's `.env`.
+- The Laravel server must be running (`php artisan serve` in `c:\Users\Nikita\OneDrive\Рабочий стол\диплом\panacea\`), and the ai-service ngrok tunnel must be up, or set `AI_USE_MOCK=true` in Laravel's `.env`.
 - Legacy complaint/recommendation endpoints have been **removed**. Any code referencing `/complaints` is dead and should be deleted.

@@ -1,0 +1,11 @@
+{
+  "dashboard": "Dashboard",
+  "profile": "Profile",
+  "chats": "Chats",
+  "anamneses": "Anamneses",
+  "health": "Health",
+  "navigation": "Main navigation",
+  "viewAll": "View all",
+  "logout": "Logout",
+  "openProfile": "Open profile"
+}

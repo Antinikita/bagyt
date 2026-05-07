@@ -1,12 +1,18 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Trash2, Save, Pencil, X, Footprints, Heart, Moon } from 'lucide-react';
-import { ANAMNESIS_FIELDS } from '../api/anamneses';
+import { ArrowLeft, Trash2, Save, Pencil, X, Footprints, Heart, Moon, Download, ChevronDown, Loader2 } from 'lucide-react';
+import { ANAMNESIS_FIELDS, downloadAnamnesisPdf } from '../api/anamneses';
 import { useAnamnesis, useUpdateAnamnesis, useDeleteAnamnesis } from '../api/hooks/useAnamneses';
 import { extractApiError } from '../api/axios-client';
 import { formatSleep, formatNormRange } from '../lib/health';
 import Button from '../components/ui/Button';
+
+const DOWNLOAD_LANGS = [
+  { code: 'en', label: 'English' },
+  { code: 'ru', label: 'Русский' },
+  { code: 'kk', label: 'Қазақша' },
+];
 
 const STATUS_TONE = {
   below: 'text-amber-700 dark:text-amber-300',
@@ -47,10 +53,25 @@ export default function AnamnesisDetail() {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({});
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [downloadOpen, setDownloadOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const saving = updateMutation.isPending;
   const deleting = deleteMutation.isPending;
   const displayError = error || queryError;
+
+  const handleDownload = async (locale) => {
+    setDownloadOpen(false);
+    setError('');
+    setDownloading(true);
+    try {
+      await downloadAnamnesisPdf(anamnesisId, locale);
+    } catch (err) {
+      setError(extractApiError(err, 'anamneses.downloadFailed'));
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const startEdit = () => {
     const initial = {};
@@ -82,7 +103,10 @@ export default function AnamnesisDetail() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-brand-500 dark:border-gray-700 dark:border-t-brand-400" />
+        <Loader2
+          className="h-8 w-8 animate-spin text-brand-500 dark:text-brand-400"
+          style={{ willChange: 'transform' }}
+        />
       </div>
     );
   }
@@ -120,9 +144,41 @@ export default function AnamnesisDetail() {
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {!editing ? (
             <>
+              <div className="relative">
+                <Button
+                  variant="secondary"
+                  onClick={() => setDownloadOpen((v) => !v)}
+                  disabled={downloading}
+                >
+                  <Download className="h-4 w-4" /> {t('anamneses.download')}
+                  <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                </Button>
+                {downloadOpen && (
+                  <div
+                    role="menu"
+                    onMouseLeave={() => setDownloadOpen(false)}
+                    className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-deep-700 dark:bg-deep-800"
+                  >
+                    <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      {t('anamneses.downloadAs')}
+                    </p>
+                    {DOWNLOAD_LANGS.map((lang) => (
+                      <button
+                        key={lang.code}
+                        type="button"
+                        onClick={() => handleDownload(lang.code)}
+                        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-deep-700"
+                      >
+                        <span>{lang.label}</span>
+                        <span className="text-[10px] uppercase text-gray-400">{lang.code}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <Button variant="secondary" onClick={startEdit}>
                 <Pencil className="h-4 w-4" /> {t('common.edit')}
               </Button>
@@ -297,20 +353,46 @@ function HealthContextPanel({ context, generatedAt }) {
   );
 }
 
+// Backend caps each anamnesis text field at 10_000 chars (see
+// AnamnesisController::FIELD_MAX_CHARS). We also enforce client-side
+// via maxLength + a soft-warning counter at 9_000 so users see it
+// coming before they hit the hard cap.
+const ANAMNESIS_FIELD_MAX = 10000;
+const ANAMNESIS_FIELD_WARN_AT = 9000;
+
 function AnamnesisField({ label, value, editing, onChange }) {
   const { t } = useTranslation();
+  const len = (value ?? '').length;
+  const remaining = ANAMNESIS_FIELD_MAX - len;
+  const overWarn = len >= ANAMNESIS_FIELD_WARN_AT;
+  const atCap = len >= ANAMNESIS_FIELD_MAX;
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-deep-700 dark:bg-deep-800">
       <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
         {label}
       </p>
       {editing ? (
-        <textarea
-          value={value ?? ''}
-          onChange={(e) => onChange(e.target.value)}
-          rows={3}
-          className="mt-2 w-full resize-none rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-brand-400 dark:border-deep-700 dark:bg-deep-900 dark:text-white"
-        />
+        <>
+          <textarea
+            value={value ?? ''}
+            onChange={(e) => onChange(e.target.value)}
+            rows={3}
+            maxLength={ANAMNESIS_FIELD_MAX}
+            className="mt-2 w-full resize-none rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-brand-400 dark:border-deep-700 dark:bg-deep-900 dark:text-white"
+          />
+          <p
+            className={`mt-1 text-right text-[10px] ${
+              atCap
+                ? 'font-semibold text-red-600 dark:text-red-400'
+                : overWarn
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : 'text-gray-400 dark:text-gray-500'
+            }`}
+          >
+            {atCap ? t('anamneses.charsLimitReached') : t('anamneses.charsLeft', { count: remaining })}
+          </p>
+        </>
       ) : (
         <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-200">
           {value || <span className="text-gray-400 dark:text-gray-500">{t('anamneses.notProvided')}</span>}

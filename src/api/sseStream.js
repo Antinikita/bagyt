@@ -30,9 +30,21 @@ export async function streamChatMessage({ chatId, message, locale, signal, onEve
   });
 
   if (!res.ok || !res.body) {
-    let detail = '';
-    try { detail = (await res.text()).slice(0, 400); } catch {}
-    throw new Error(`Stream failed: ${res.status} ${res.statusText} ${detail}`);
+    // Try to lift the structured error envelope out of the body so callers
+    // can see `err.code === 'AI_UPSTREAM_FAILED'` and show the right copy
+    // instead of a raw "Stream failed: 502" string.
+    let bodyText = '';
+    let envelope = null;
+    try { bodyText = await res.text(); } catch {}
+    try { envelope = bodyText ? JSON.parse(bodyText) : null; } catch {}
+
+    const code = envelope?.error?.code;
+    const message = envelope?.error?.message
+      || `Stream failed: ${res.status} ${res.statusText}`;
+    const error = new Error(message);
+    if (code) error.code = code;
+    error.status = res.status;
+    throw error;
   }
 
   const reader = res.body.getReader();
@@ -59,7 +71,7 @@ export async function streamChatMessage({ chatId, message, locale, signal, onEve
   }
 }
 
-function parseSseEvent(raw) {
+export function parseSseEvent(raw) {
   let event = 'message';
   const dataLines = [];
   for (const line of raw.split('\n')) {
@@ -73,6 +85,12 @@ function parseSseEvent(raw) {
   if (!dataLines.length) return null;
   const raw_data = dataLines.join('\n');
   let data = raw_data;
-  try { data = JSON.parse(raw_data); } catch {}
+  try {
+    data = JSON.parse(raw_data);
+  } catch (err) {
+    if (import.meta.env.DEV) {
+      console.warn('SSE: malformed JSON in event data', { event, raw_data, error: err?.message });
+    }
+  }
   return { event, data };
 }

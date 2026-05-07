@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Mail } from 'lucide-react';
 import AuthCard from '../components/AuthCard';
@@ -15,12 +15,14 @@ import { extractApiError } from '../api/axios-client';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const resetSuccess = location.state?.resetSuccess;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -53,6 +55,11 @@ export default function Login() {
         </>
       }
     >
+      {resetSuccess && (
+        <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200">
+          {t('auth.resetSuccess')}
+        </div>
+      )}
       {error && <ErrorBanner message={error} className="mb-5 animate-shake" />}
 
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
@@ -75,6 +82,15 @@ export default function Login() {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
+
+        <div className="flex justify-end -mt-2">
+          <Link
+            to="/forgot-password"
+            className="text-xs font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200"
+          >
+            {t('auth.forgotPassword')}
+          </Link>
+        </div>
 
         <Button
           type="submit"

@@ -9,11 +9,29 @@ import InsightsCard from '../components/health/InsightsCard';
 import ComparisonBars from '../components/health/ComparisonBars';
 import MetricAreaChart from '../components/charts/MetricAreaChart';
 
+// These mirror the per-type validation in the Laravel HealthMetricController
+// (see ALLOWED_METRICS there). Keep them in sync — backend enforces these
+// and rejects with 422 otherwise; frontend shows them as hints + form bounds.
 const TYPE_OPTIONS = [
-  { value: 'steps', unit: 'count' },
-  { value: 'heart_rate', unit: 'bpm' },
-  { value: 'sleep_duration', unit: 'minutes' },
+  { value: 'steps',          unit: 'count',   min: 0,  max: 100000 },
+  { value: 'heart_rate',     unit: 'bpm',     min: 20, max: 250 },
+  { value: 'sleep_duration', unit: 'minutes', min: 0,  max: 1440 },
 ];
+
+// Backend window: not >5 min in the future, not >365 days in the past.
+function recordedAtBounds() {
+  const now = new Date();
+  const max = new Date(now);
+  max.setMinutes(max.getMinutes() + 5);
+  const min = new Date(now);
+  min.setDate(min.getDate() - 365);
+  // datetime-local needs YYYY-MM-DDTHH:MM (local, no Z).
+  const fmt = (d) => {
+    const x = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+    return x.toISOString().slice(0, 16);
+  };
+  return { min: fmt(min), max: fmt(max) };
+}
 
 function nowLocalISOString() {
   const d = new Date();
@@ -111,12 +129,32 @@ function ManualEntryDisclosure() {
       setError(t('health.invalidValue'));
       return;
     }
+    if (numeric < selectedType.min || numeric > selectedType.max) {
+      setError(t('health.valueOutOfRange', {
+        min: selectedType.min,
+        max: selectedType.max,
+        unit: selectedType.unit,
+      }));
+      return;
+    }
+    const recorded = new Date(recordedAt);
+    const now = new Date();
+    if (recorded.getTime() > now.getTime() + 5 * 60 * 1000) {
+      setError(t('health.dateInFuture'));
+      return;
+    }
+    const yearAgo = new Date(now);
+    yearAgo.setDate(yearAgo.getDate() - 365);
+    if (recorded.getTime() < yearAgo.getTime()) {
+      setError(t('health.dateTooOld'));
+      return;
+    }
     try {
       await postMutation.mutateAsync([{
         type,
         value: numeric,
         unit: selectedType.unit,
-        recorded_at: new Date(recordedAt).toISOString(),
+        recorded_at: recorded.toISOString(),
         source: 'manual',
       }]);
       setSuccess(t('health.submitOk'));
@@ -125,6 +163,8 @@ function ManualEntryDisclosure() {
       setError(extractApiError(err, 'health.submitFailed'));
     }
   };
+
+  const dateBounds = recordedAtBounds();
 
   return (
     <section className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-deep-700 dark:bg-deep-800">
@@ -181,11 +221,20 @@ function ManualEntryDisclosure() {
               <input
                 type="number"
                 step="any"
+                min={selectedType.min}
+                max={selectedType.max}
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 required
                 className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200 dark:border-deep-700 dark:bg-deep-800 dark:text-white"
               />
+              <span className="mt-1 block text-[10px] text-gray-400 dark:text-gray-500">
+                {t('health.valueRange', {
+                  min: selectedType.min,
+                  max: selectedType.max,
+                  unit: selectedType.unit,
+                })}
+              </span>
             </label>
             <label className="text-sm sm:col-span-1">
               <span className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
@@ -193,6 +242,8 @@ function ManualEntryDisclosure() {
               </span>
               <input
                 type="datetime-local"
+                min={dateBounds.min}
+                max={dateBounds.max}
                 value={recordedAt}
                 onChange={(e) => setRecordedAt(e.target.value)}
                 required
