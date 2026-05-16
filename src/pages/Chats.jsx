@@ -1,7 +1,15 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Search, MessageSquare, Trash2, Inbox, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  MessageSquare,
+  Trash2,
+  Inbox,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { useChatsList, useCreateChat, useDeleteChat } from '../api/hooks/useChats';
 import useDebouncedValue from '../lib/useDebouncedValue';
 import { extractApiError } from '../api/axios-client';
@@ -64,7 +72,11 @@ export default function Chats() {
   const formatDate = (dateString) => {
     if (!dateString) return '';
     return new Date(dateString).toLocaleDateString(locale, {
-      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
 
@@ -85,9 +97,7 @@ export default function Chats() {
               </span>
             )}
           </div>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            {t('chats.subtitle')}
-          </p>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{t('chats.subtitle')}</p>
         </div>
         <Button variant="primary" onClick={handleCreate} loading={creating}>
           <Plus className="h-4 w-4" />
@@ -100,7 +110,10 @@ export default function Chats() {
         <input
           type="text"
           value={q}
-          onChange={(e) => { setQ(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setPage(1);
+          }}
           placeholder={t('chats.searchPlaceholder')}
           className="w-full rounded-lg border border-gray-300 bg-white pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:ring-2 focus:ring-brand-400 dark:border-deep-700 dark:bg-deep-800 dark:text-white dark:placeholder-gray-500"
         />
@@ -158,7 +171,11 @@ export default function Chats() {
                   <button
                     type="button"
                     aria-label={t('chats.deleteAria')}
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPendingDeleteId(chat.id); }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setPendingDeleteId(chat.id);
+                    }}
                     className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-900/30 dark:hover:text-red-300"
                   >
                     <Trash2 className="h-4 w-4" />

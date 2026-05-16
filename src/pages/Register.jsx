@@ -9,8 +9,6 @@ import Input from '../components/ui/Input';
 import PasswordInput from '../components/ui/PasswordInput';
 import PasswordStrengthMeter from '../components/ui/PasswordStrengthMeter';
 import ErrorBanner from '../components/ui/ErrorBanner';
-import Divider from '../components/ui/Divider';
-import SocialButton from '../components/ui/SocialButton';
 import Select from '../components/ui/Select';
 import Checkbox from '../components/ui/Checkbox';
 import { useAuth } from '../context/AuthContext';
@@ -118,12 +116,7 @@ export default function Register() {
         />
 
         <div className="grid grid-cols-2 gap-3">
-          <Select
-            label={t('auth.sex')}
-            name="sex"
-            value={formData.sex}
-            onChange={handleChange}
-          >
+          <Select label={t('auth.sex')} name="sex" value={formData.sex} onChange={handleChange}>
             <option value="">{t('auth.preferNotToSay')}</option>
             <option value="male">{t('auth.male')}</option>
             <option value="female">{t('auth.female')}</option>
@@ -182,22 +175,10 @@ export default function Register() {
           required
         />
 
-        <Button
-          type="submit"
-          variant="primary"
-          loading={loading}
-          className="w-full"
-        >
+        <Button type="submit" variant="primary" loading={loading} className="w-full">
           {t('auth.signUp')}
         </Button>
       </form>
-
-      <Divider className="my-6">{t('common.or')}</Divider>
-
-      <div className="grid grid-cols-2 gap-2">
-        <SocialButton provider="google" disabled />
-        <SocialButton provider="github" disabled />
-      </div>
     </AuthCard>
   );
 }

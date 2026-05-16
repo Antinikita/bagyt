@@ -121,7 +121,13 @@ export default function ChatDetail() {
     const optimisticUserId = `temp-user-${Date.now()}`;
     setPendingMessages((prev) => [
       ...prev,
-      { id: optimisticUserId, role: 'user', message: text, created_at: new Date().toISOString(), _pending: true },
+      {
+        id: optimisticUserId,
+        role: 'user',
+        message: text,
+        created_at: new Date().toISOString(),
+        _pending: true,
+      },
     ]);
     setStreamingText('');
     setStreamingSending(true);
@@ -145,7 +151,9 @@ export default function ChatDetail() {
             if (data?.user_message_id) {
               userMessageId = data.user_message_id;
               setPendingMessages((prev) =>
-                prev.map((m) => (m.id === optimisticUserId ? { ...m, id: userMessageId, _pending: false } : m)),
+                prev.map((m) =>
+                  m.id === optimisticUserId ? { ...m, id: userMessageId, _pending: false } : m,
+                ),
               );
             }
             if (data?.assistant_message_id) assistantMessageId = data.assistant_message_id;
@@ -172,7 +180,12 @@ export default function ChatDetail() {
         [
           ...prev.filter((m) => m.id !== optimisticUserId && m.id !== userMessageId),
           userMessageId
-            ? { id: userMessageId, role: 'user', message: text, created_at: new Date().toISOString() }
+            ? {
+                id: userMessageId,
+                role: 'user',
+                message: text,
+                created_at: new Date().toISOString(),
+              }
             : null,
           {
             id: assistantMessageId ?? `temp-assistant-${Date.now()}`,
@@ -191,7 +204,9 @@ export default function ChatDetail() {
       setPendingMessages([]);
     } catch (err) {
       // On stream error, drop optimistic rows (server has nothing yet).
-      setPendingMessages((prev) => prev.filter((m) => m.id !== optimisticUserId && m.id !== userMessageId));
+      setPendingMessages((prev) =>
+        prev.filter((m) => m.id !== optimisticUserId && m.id !== userMessageId),
+      );
       // extractApiError handles err.code === 'AI_UPSTREAM_FAILED' by
       // returning the dedicated "AI service is down" copy, no matter
       // whether the failure came from the HTTP layer (502 from
@@ -266,7 +281,10 @@ export default function ChatDetail() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-500 dark:text-brand-400" style={{ willChange: 'transform' }} />
+        <Loader2
+          className="h-8 w-8 animate-spin text-brand-500 dark:text-brand-400"
+          style={{ willChange: 'transform' }}
+        />
       </div>
     );
   }
@@ -275,7 +293,10 @@ export default function ChatDetail() {
     return (
       <div className="mx-auto max-w-2xl p-6 text-center">
         <p className="text-gray-600 dark:text-gray-300">{displayError || t('chats.notFound')}</p>
-        <Link to="/admin/chats" className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300">
+        <Link
+          to="/admin/chats"
+          className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300"
+        >
           <ArrowLeft className="h-4 w-4" /> {t('chats.backToList')}
         </Link>
       </div>
@@ -302,7 +323,11 @@ export default function ChatDetail() {
           </div>
         )}
 
-        <div ref={scrollRef} onScroll={handleScroll} className="relative flex-1 space-y-4 overflow-y-auto p-4">
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="relative flex-1 space-y-4 overflow-y-auto p-4"
+        >
           {messages.length === 0 && !streamingText && (
             <div className="flex flex-col items-center justify-center py-16 text-center text-gray-500 dark:text-gray-400">
               <Bot className="h-10 w-10 opacity-50" />

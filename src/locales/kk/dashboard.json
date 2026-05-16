@@ -3,7 +3,7 @@
   "welcome": "Қош келдіңіз",
   "welcomeWithName": "Қош келдіңіз, {{name}}",
   "subtitle": "ИИ-ассистентпен сөйлесіп, құрылымдалған анамнездер жасаңыз — барлығы бір жерде.",
-  "totalChats": "барлығы {{count}}",
+  "totalChats": "Чаттар",
   "totalAnamneses": "Анамнездер",
   "allTime": "Барлық уақытта",
   "generatedByAi": "ИИ жасаған",

@@ -20,6 +20,7 @@ const Anamneses = lazy(() => import('./pages/Anamneses'));
 const AnamnesisDetail = lazy(() => import('./pages/AnamnesisDetail'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Health = lazy(() => import('./pages/Health'));
+const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -55,6 +56,7 @@ const router = createBrowserRouter([
       { path: 'anamneses', element: suspended(<Anamneses />) },
       { path: 'anamneses/:anamnesisId', element: suspended(<AnamnesisDetail />) },
       { path: 'health', element: suspended(<Health />) },
+      { path: 'users', element: suspended(<AdminUsers />) },
     ],
   },
   {

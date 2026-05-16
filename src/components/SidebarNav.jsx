@@ -1,8 +1,18 @@
 import { useMemo } from 'react';
 import { Link, NavLink, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Home, MessageSquare, FileText, Plus, Trash2, User as UserIcon, Activity } from 'lucide-react';
+import {
+  Home,
+  MessageSquare,
+  FileText,
+  Plus,
+  Trash2,
+  User as UserIcon,
+  Activity,
+  Users as UsersIcon,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { useChatsList, useCreateChat, useDeleteChat } from '../api/hooks/useChats';
 import { getChatVisits, forgetChatVisit } from '../lib/chatVisits';
 
@@ -15,6 +25,7 @@ export default function SidebarNav() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { chatId } = useParams();
+  const { hasRole } = useAuth();
 
   // Pull a generous slice from the server. The previous perPage:15 cap
   // caused chats to vanish off the sidebar the moment the 16th was
@@ -38,9 +49,7 @@ export default function SidebarNav() {
       if (visited && updated) return visited > updated ? visited : updated;
       return visited || updated || '';
     };
-    return [...allChats]
-      .sort((a, b) => (rankOf(a) < rankOf(b) ? 1 : -1))
-      .slice(0, SIDEBAR_LIMIT);
+    return [...allChats].sort((a, b) => (rankOf(a) < rankOf(b) ? 1 : -1)).slice(0, SIDEBAR_LIMIT);
   }, [allChats]);
 
   const handleNew = async () => {
@@ -71,6 +80,9 @@ export default function SidebarNav() {
     { to: '/admin/anamneses', icon: FileText, label: t('nav.anamneses') },
     { to: '/admin/health', icon: Activity, label: t('nav.health') },
     { to: '/admin/profile', icon: UserIcon, label: t('nav.profile') },
+    // Only show the user roster to admin accounts. Server-side
+    // role:admin middleware is the real gate; this just hides the link.
+    ...(hasRole('admin') ? [{ to: '/admin/users', icon: UsersIcon, label: 'Users (admin)' }] : []),
   ];
 
   return (
@@ -112,10 +124,17 @@ export default function SidebarNav() {
 
         {loading ? (
           <div className="space-y-2">
-            {[0, 1, 2].map((i) => <div key={i} className="h-10 animate-pulse rounded-lg bg-gray-100 dark:bg-deep-700/50" />)}
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="h-10 animate-pulse rounded-lg bg-gray-100 dark:bg-deep-700/50"
+              />
+            ))}
           </div>
         ) : chats.length === 0 ? (
-          <p className="px-1 py-2 text-xs text-gray-500 dark:text-gray-400">{t('chats.noChatsYet')}</p>
+          <p className="px-1 py-2 text-xs text-gray-500 dark:text-gray-400">
+            {t('chats.noChatsYet')}
+          </p>
         ) : (
           <ul className="space-y-1">
             {chats.map((c) => {
@@ -131,7 +150,9 @@ export default function SidebarNav() {
                     }`}
                   >
                     <MessageSquare className="h-3.5 w-3.5 shrink-0 opacity-60" />
-                    <span className="min-w-0 flex-1 truncate">{c.title || t('common.untitled')}</span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {c.title || t('common.untitled')}
+                    </span>
                     <button
                       onClick={(e) => handleDelete(c.id, e)}
                       aria-label={t('common.delete')}

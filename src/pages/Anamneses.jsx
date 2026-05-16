@@ -22,9 +22,14 @@ export default function Anamneses() {
   const loading = query.isLoading;
   const error = query.isError ? extractApiError(query.error, 'anamneses.failedLoadList') : '';
 
-  const formatDate = (d) => d ? new Date(d).toLocaleDateString(locale, {
-    year: 'numeric', month: 'short', day: 'numeric',
-  }) : '';
+  const formatDate = (d) =>
+    d
+      ? new Date(d).toLocaleDateString(locale, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        })
+      : '';
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 p-6">
@@ -42,9 +47,7 @@ export default function Anamneses() {
             </span>
           )}
         </div>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          {t('anamneses.subtitle')}
-        </p>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{t('anamneses.subtitle')}</p>
       </header>
 
       {error && (

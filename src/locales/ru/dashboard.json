@@ -3,7 +3,7 @@
   "welcome": "Добро пожаловать",
   "welcomeWithName": "Добро пожаловать, {{name}}",
   "subtitle": "Общайтесь с ИИ-ассистентом и создавайте структурированные анамнезы в одном месте.",
-  "totalChats": "всего {{count}}",
+  "totalChats": "Чаты",
   "totalAnamneses": "Анамнезы",
   "allTime": "За всё время",
   "generatedByAi": "Создано ИИ",

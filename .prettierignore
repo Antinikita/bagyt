@@ -5,3 +5,8 @@ coverage
 package-lock.json
 .env
 .env.*
+
+# Locale JSON files — reformatting them creates churn when translators
+# (or i18n editors) reorder keys, and the structure is already linted by
+# i18next at load time.
+src/locales/

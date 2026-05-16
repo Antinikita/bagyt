@@ -1,7 +1,13 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  Plus, Sparkles, MessageSquare, FileText, Clock, TrendingUp, ArrowUpRight,
+  Plus,
+  Sparkles,
+  MessageSquare,
+  FileText,
+  Clock,
+  TrendingUp,
+  ArrowUpRight,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useChatsList } from '../api/hooks/useChats';
@@ -46,13 +52,18 @@ export default function Dashboard() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 p-6">
       <section className="relative overflow-hidden rounded-2xl bg-grad-cta-deep p-8 text-white shadow-xl">
-        <div aria-hidden="true" className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-brand-400/30 blur-3xl" />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-brand-400/30 blur-3xl"
+        />
         <div className="relative">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-200/90">
             {t('dashboard.label')}
           </p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
-            {user?.name ? t('dashboard.welcomeWithName', { name: user.name }) : t('dashboard.welcome')}
+            {user?.name
+              ? t('dashboard.welcomeWithName', { name: user.name })
+              : t('dashboard.welcome')}
           </h1>
           <p className="mt-2 max-w-xl text-white/80">{t('dashboard.subtitle')}</p>
           <div className="mt-6 flex flex-wrap gap-3">
@@ -92,12 +103,21 @@ export default function Dashboard() {
         <Stat
           icon={Clock}
           label={t('dashboard.lastActivity')}
-          value={loading ? '—' : lastDate
-            ? new Date(lastDate).toLocaleDateString(locale, { month: 'short', day: 'numeric' })
-            : '—'}
-          hint={lastDate
-            ? new Date(lastDate).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
-            : t('dashboard.nothingYet')}
+          value={
+            loading
+              ? '—'
+              : lastDate
+                ? new Date(lastDate).toLocaleDateString(locale, { month: 'short', day: 'numeric' })
+                : '—'
+          }
+          hint={
+            lastDate
+              ? new Date(lastDate).toLocaleTimeString(locale, {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : t('dashboard.nothingYet')
+          }
           tint="bg-emerald-50 text-emerald-700 dark:bg-deep-700 dark:text-emerald-300"
         />
       </section>
@@ -119,8 +139,11 @@ export default function Dashboard() {
               {chatsQuery.data?.total > 0 && (
                 <span
                   className="inline-flex items-center justify-center rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700 dark:bg-deep-700 dark:text-brand-300"
-                  aria-label={t('dashboard.totalChats', { count: chatsQuery.data.total })}
-                  title={t('dashboard.showingNofTotal', { showing: chats.length, total: chatsQuery.data.total })}
+                  aria-label={t('chats.totalCount', { count: chatsQuery.data.total })}
+                  title={t('dashboard.showingNofTotal', {
+                    showing: chats.length,
+                    total: chatsQuery.data.total,
+                  })}
                 >
                   {chats.length}/{chatsQuery.data.total}
                 </span>
@@ -138,7 +161,10 @@ export default function Dashboard() {
           {loading ? (
             <div className="space-y-2">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="h-14 animate-pulse rounded-xl bg-gray-100 dark:bg-deep-700/50" />
+                <div
+                  key={i}
+                  className="h-14 animate-pulse rounded-xl bg-gray-100 dark:bg-deep-700/50"
+                />
               ))}
             </div>
           ) : chats.length === 0 ? (

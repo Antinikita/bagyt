@@ -8,8 +8,6 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import PasswordInput from '../components/ui/PasswordInput';
 import ErrorBanner from '../components/ui/ErrorBanner';
-import Divider from '../components/ui/Divider';
-import SocialButton from '../components/ui/SocialButton';
 import { useAuth } from '../context/AuthContext';
 import { extractApiError } from '../api/axios-client';
 
@@ -102,13 +100,6 @@ export default function Login() {
           {t('auth.signIn')}
         </Button>
       </form>
-
-      <Divider className="my-6">{t('common.or')}</Divider>
-
-      <div className="grid grid-cols-2 gap-2">
-        <SocialButton provider="google" disabled />
-        <SocialButton provider="github" disabled />
-      </div>
     </AuthCard>
   );
 }
